@@ -5,7 +5,17 @@
 kids-game/
   index.html          ← homepage / game hub (neal.fun-inspired grid of game cards)
   hill-jumper/
-    index.html        ← Hill Jumper game (single-file canvas)
+    index.html        ← Hill Jumper game (HTML + CSS + <script> imports only)
+    js/
+      canvas.js       ← canvas, ctx, W/H/DPR, resizeCanvas
+      db.js           ← UserDB (localStorage) + Supabase API
+      terrain.js      ← terrainY, getGroundAt, firePools, flatZones
+      audio.js        ← audio system, all SFX functions
+      entities.js     ← ENEMY_TYPES + drawCar/Rock/Trex/Mouse
+      state.js        ← game state vars, player, reset(), initSpawners()
+      update.js       ← update() game loop tick
+      draw.js         ← all draw functions + main draw()
+      ui.js           ← input, settings panel, modals, loop(), init
   CLAUDE.md
 ```
 When adding a new game, create a new subfolder (e.g. `word-blast/index.html`) and add a card to the root `index.html` grid.
@@ -16,7 +26,7 @@ Every designed element (enemies, obstacles, hazards, power-ups, etc.) must appea
 2. Add an entry to the `entries` array in `drawGallery()` with `label`, `desc`, `w`, `h`, `drawFn`, and `makeObj`.
 
 ## Architecture notes
-- Single-file HTML5 Canvas game — no frameworks.
+- HTML5 Canvas game — no frameworks. Script files loaded in order via `<script src>` tags.
 - `terrainY(worldX)` — O(1) ground lookup via `terrainOffset`.
 - Entity registry: `ENEMY_TYPES` object; `enemies[]` array; `spawners[]` timer array.
 - Double jump with coyote time (6 frames) and jump buffer (10 frames).
