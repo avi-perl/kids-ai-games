@@ -42,7 +42,7 @@ function update() {
     const vx = W + 80 + Math.random() * 60;
     const vwx = terrainOffset + vx;
     const inPool = firePools.some(p =>
-      vwx + CAR_W > p.worldStart - POOL_SLOPE && vwx < p.worldEnd + POOL_SLOPE);
+      vwx + CAR_W > p.worldStart - 250 && vwx < p.worldEnd + 250);
     // Exclude the full rock flat zone + slope on both sides so the car never
     // spawns on the ramp or overlapping the rock itself.
     const nearRock = flatZones.some(z =>
@@ -51,7 +51,7 @@ function update() {
     if (!inPool && !nearRock) {
       vehicles.push({ x: vx, y: getGroundAt(vx + CAR_W / 2) - CAR_H,
                       w: CAR_W, h: CAR_H, frame: 0, state: 'available', vy: 0, onGround: false });
-      vehicleTimer = 1200 + Math.random() * 800;
+      vehicleTimer = 1800 + Math.random() * 1000;
     } else {
       vehicleTimer = 300; // retry soon
     }
@@ -204,9 +204,10 @@ function update() {
     sfxDeath();
   }
 
-  // Collision — all vehicles boop enemies regardless of boarding state
+  // Collision — vehicles only boop enemies while the player is riding
   let survivingEnemies = [...enemies];
   for (const v of vehicles) {
+    if (v !== boardedVehicle) continue;
     const { x: bx, y: by, w: bw, h: bh } = v;
     const next = [];
     for (const e of survivingEnemies) {
@@ -257,8 +258,7 @@ function update() {
 
   // Score & progressive difficulty
   score++;
-  baseSpeed = 3 + Math.floor(score / 500) * 0.5;
-  if (baseSpeed > 6) baseSpeed = 6;
+  baseSpeed = 3 + Math.min(3, score / 5000);
   speed = Math.max(1, baseSpeed + settingsSpeedOffset + boardingBoost);
 
   // Save score exactly once when the game ends

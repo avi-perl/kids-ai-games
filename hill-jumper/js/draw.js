@@ -99,9 +99,9 @@ function drawPlayer(p) {
     ctx.fillRect(cx - shirtW * 0.32, shirtB, legW, legH * 0.9);
     ctx.fillRect(cx + shirtW * 0.32 - legW, shirtB, legW, legH * 0.9);
   } else {
-    const la = Math.sin(t * 0.28) * 3;
-    ctx.fillRect(cx - shirtW * 0.32, shirtB + la,  legW, legH - la);
-    ctx.fillRect(cx + shirtW * 0.32 - legW, shirtB - la, legW, legH + la);
+    const la = Math.sin(t * 0.28) * 4;
+    ctx.fillRect(cx - shirtW * 0.32,        shirtB, legW, legH + la);
+    ctx.fillRect(cx + shirtW * 0.32 - legW, shirtB, legW, legH - la);
   }
 
   // Tzitzis — 1 string each side

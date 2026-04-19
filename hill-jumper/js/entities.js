@@ -13,7 +13,7 @@ const ENEMY_TYPES = {
   book: {
     w: 52, h: 52,
     minDist: 450, maxDist: 800,
-    hitboxPad: 6,
+    hitboxPad: 9,
     deathTitle: 'CHOMPED!',
     deathSub:   'A T-Rex stomped right through you!',
     deathColor: '#2d6b28',
@@ -35,7 +35,7 @@ const ENEMY_TYPES = {
   rock: {
     w: 57, h: 42,
     minDist: 900, maxDist: 1800,
-    hitboxPad: 4,
+    hitboxPad: 7,
     deathTitle: 'OUCH!',
     deathSub:   'You ran straight into a rock!',
     deathColor: '#666',
@@ -43,9 +43,14 @@ const ENEMY_TYPES = {
     galleryDesc:  'Stationary — but very solid!',
     draw: drawRock,
     spawnOk(worldX) {
-      const clear = POOL_SLOPE + this.w + 180;  // world-px buffer from pool edges
+      const clear = POOL_SLOPE + this.w + 180;
       for (const pool of firePools) {
         if (worldX > pool.worldStart - clear && worldX < pool.worldEnd + clear) return false;
+      }
+      // Never spawn within 250px (edge-to-edge) of a vehicle
+      const vClear = CAR_W / 2 + this.w / 2 + 250;
+      for (const v of vehicles) {
+        if (Math.abs(worldX - (v.x + terrainOffset + CAR_W / 2)) < vClear) return false;
       }
       return true;
     },
@@ -69,7 +74,7 @@ const ENEMY_TYPES = {
   mouse: {
     w: 44, h: 24,
     minDist: 300, maxDist: 650,
-    hitboxPad: 5,
+    hitboxPad: 7,
     deathTitle: 'CHOMPED!',
     deathSub:   'A Mouse Fish bit you!',
     deathColor: '#446677',

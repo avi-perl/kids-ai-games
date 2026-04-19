@@ -1,4 +1,4 @@
-const GRAVITY    = 0.5;
+const GRAVITY    = 0.44;
 const JUMP_FORCE = -11;
 
 // terrainOffset tracks total world distance scrolled.
@@ -37,17 +37,12 @@ function getGroundAt(screenX) {
     y = y + (zone.flatY - y) * smoothstep(t);
   }
 
-  // Lower terrain into each lava pool pit
+  // Vertical drop into each lava pool pit — walls are perfectly vertical
   for (const pool of firePools) {
-    const s    = pool.worldStart - terrainOffset;
-    const e    = pool.worldEnd   - terrainOffset;
-    const left = s - POOL_SLOPE;
-    const rght = e + POOL_SLOPE;
-    if (screenX <= left || screenX >= rght) continue;
-    let t = screenX < s ? (screenX - left)  / POOL_SLOPE
-          : screenX > e ? (rght - screenX) / POOL_SLOPE
-          : 1;
-    y = y + (H + 80 - y) * smoothstep(t);
+    const s = pool.worldStart - terrainOffset;
+    const e = pool.worldEnd   - terrainOffset;
+    if (screenX < s || screenX > e) continue;
+    y = H + 80;
   }
 
   return y;

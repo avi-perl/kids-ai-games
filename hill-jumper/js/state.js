@@ -46,7 +46,7 @@ let spawners = [];
 
 // ── Vehicles (separate from enemies — player can ride them) ───
 let vehicles      = [];
-let vehicleTimer  = 600;
+let vehicleTimer  = 900;
 // The vehicle the player is currently riding (null if on foot)
 let boardedVehicle = null;
 let boardingBoost  = 0;   // extra speed while riding
@@ -76,7 +76,7 @@ function reset() {
   vehicles      = [];
   boardedVehicle = null;
   boardingBoost  = 0;
-  vehicleTimer  = 1200 + Math.random() * 800;
+  vehicleTimer  = 1800 + Math.random() * 1000;
   jumpPressed    = false;
   jumpBuffer     = 0;
   coyoteTimer    = 0;
