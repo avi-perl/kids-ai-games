@@ -1,5 +1,15 @@
 # Kids Game — Claude Guidelines
 
+## Project structure
+```
+kids-game/
+  index.html          ← homepage / game hub (neal.fun-inspired grid of game cards)
+  hill-jumper/
+    index.html        ← Hill Jumper game (single-file canvas)
+  CLAUDE.md
+```
+When adding a new game, create a new subfolder (e.g. `word-blast/index.html`) and add a card to the root `index.html` grid.
+
 ## Gallery rule
 Every designed element (enemies, obstacles, hazards, power-ups, etc.) must appear in the Design Gallery. When adding a new element:
 1. Implement a local-coordinate draw function (receives `{x, y, w, h, frame, seed, ...}`) so it renders correctly inside the gallery's scaled cell system.
