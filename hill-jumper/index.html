@@ -123,6 +123,7 @@
     cursor: pointer; white-space: nowrap; min-height: 44px;
   }
   #add-user-btn:hover { background: #5ba3eb; }
+  #new-user-error { color: #e74c3c; font-size: 13px; min-height: 18px; font-family: monospace; }
   /* Play button */
   #user-play-btn {
     width: 100%; padding: 14px; background: #27ae60; border: none; border-radius: 10px;
@@ -248,6 +249,7 @@
       <input id="new-name-input" type="text" placeholder="Enter your name…" maxlength="18" autocomplete="off" spellcheck="false">
       <button id="add-user-btn">Add</button>
     </div>
+    <div id="new-user-error"></div>
     <button id="user-play-btn" disabled>▶ Play</button>
   </div>
 </div>
@@ -358,6 +360,62 @@ const UserDB = (() => {
 })();
 
 let currentUser = UserDB.current();
+
+// ─── API ──────────────────────────────────────────────────
+const SB_KEY = 'sb_publishable_p6YpYEk1sDGkXtor_YtkOA_QgHrsEH4';
+const SB_URL = 'https://xdxeahnkmdfwzxvgmnvq.supabase.co';
+
+async function sbPostScore(entry) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/scores`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name:      entry.name,
+        score:     entry.score,
+        distance:  entry.distance,
+        airtime:   entry.airtime,
+        boops:     entry.boops,
+        played_at: new Date(entry.playedAt).toISOString(),
+      }),
+    });
+  } catch {}
+}
+
+async function sbFetchScores(n = 50) {
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/scores?select=name,score,distance,airtime,boops,played_at&order=score.desc&limit=${n}`,
+      { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows.map(r => ({
+      name:     r.name,
+      score:    r.score,
+      distance: r.distance,
+      airtime:  r.airtime,
+      boops:    r.boops,
+      playedAt: new Date(r.played_at).getTime(),
+    }));
+  } catch { return null; }
+}
+
+async function sbFetchUsers() {
+  try {
+    const res = await fetch(
+      `${SB_URL}/rest/v1/scores?select=name&order=name.asc`,
+      { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return [...new Set(rows.map(r => r.name))];
+  } catch { return null; }
+}
 
 // ─── Physics ──────────────────────────────────────────────
 const GRAVITY    = 0.5;
@@ -1053,6 +1111,7 @@ function update() {
       airtime:  airtimeFrames,
       boops:    carKills,
     });
+    sbPostScore(lastSavedEntry);
   }
 }
 
@@ -2355,34 +2414,42 @@ const scoreboardModal = document.getElementById('scoreboard-modal');
 const sbContent      = document.getElementById('sb-content');
 
 let userModalForced = false;  // true = must pick/create before dismissing
+let knownUsers = [];          // cache of all known names (remote + local)
 
 function renderUserList() {
-  const users = UserDB.users();
-  const cur   = UserDB.current();
+  const cur = UserDB.current();
   userListEl.innerHTML = '';
-  users.forEach(u => {
+  knownUsers.forEach(name => {
     const card = document.createElement('div');
-    card.className = 'user-card' + (u.name === cur ? ' active' : '');
-    card.innerHTML = `<span class="user-name">${escHtml(u.name)}</span>${u.name === cur ? '<span class="user-check">✓</span>' : ''}`;
+    card.className = 'user-card' + (name === cur ? ' active' : '');
+    card.innerHTML = `<span class="user-name">${escHtml(name)}</span>${name === cur ? '<span class="user-check">✓</span>' : ''}`;
     card.addEventListener('click', () => {
-      UserDB.setCurrent(u.name);
-      currentUser = u.name;
+      UserDB.setCurrent(name);
+      currentUser = name;
       renderUserList();
       updateUserBtn();
       userPlayBtn.disabled = false;
     });
     userListEl.appendChild(card);
   });
-  userPlayBtn.disabled = !UserDB.current();
+  userPlayBtn.disabled = !cur;
+}
+
+async function loadAndRenderUsers() {
+  userListEl.innerHTML = '<div class="sb-empty" style="padding:16px 0;font-size:13px">Loading…</div>';
+  const remote = await sbFetchUsers();
+  const localNames = UserDB.users().map(u => u.name);
+  knownUsers = remote ? [...new Set([...remote, ...localNames])] : localNames;
+  renderUserList();
+  if (knownUsers.length === 0) setTimeout(() => newNameInput.focus(), 80);
 }
 
 function showUserModal(mode) {
   userModalForced = !UserDB.current();
   userModalTitle.textContent = mode === 'switch' ? 'Switch Player' : 'Who\'s Playing?';
-  renderUserList();
   newNameInput.value = '';
   userModal.classList.add('open');
-  if (UserDB.users().length === 0) setTimeout(() => newNameInput.focus(), 80);
+  loadAndRenderUsers();
 }
 
 function hideUserModal() {
@@ -2392,10 +2459,19 @@ function hideUserModal() {
   updateUserBtn();
 }
 
+const newUserError = document.getElementById('new-user-error');
+
 function addUserFromInput() {
   const name = newNameInput.value.trim();
   if (!name) return;
+  if (knownUsers.some(n => n.toLowerCase() === name.toLowerCase())) {
+    newUserError.textContent = 'That name is already taken.';
+    newNameInput.select();
+    return;
+  }
+  newUserError.textContent = '';
   UserDB.addUser(name);
+  knownUsers = [...new Set([...knownUsers, name])];
   currentUser = name;
   newNameInput.value = '';
   renderUserList();
@@ -2407,6 +2483,7 @@ addUserBtn.addEventListener('click', addUserFromInput);
 newNameInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); addUserFromInput(); }
 });
+newNameInput.addEventListener('input', () => { newUserError.textContent = ''; });
 
 userPlayBtn.addEventListener('click', () => {
   currentUser = UserDB.current();
@@ -2423,8 +2500,8 @@ document.addEventListener('keydown', e => {
   }
 });
 
-function renderScoreboard() {
-  const scores  = UserDB.scores(20);
+function renderScoreboard(scores) {
+  scores = scores ?? UserDB.scores(20);
   const fmtDist = d => { const m = Math.round(d / 50); return m >= 1000 ? (m/1000).toFixed(1)+'km' : m+'m'; };
   const fmtAir  = f => (f / 60).toFixed(1) + 's';
   const rankCls = r => r === 1 ? 'sb-gold' : r === 2 ? 'sb-silver' : r === 3 ? 'sb-bronze' : 'sb-rank-num';
@@ -2456,9 +2533,11 @@ function renderScoreboard() {
   sbContent.innerHTML = html;
 }
 
-function showScoreboard() {
+async function showScoreboard() {
   renderScoreboard();
   scoreboardModal.classList.add('open');
+  const remote = await sbFetchScores();
+  if (remote) renderScoreboard(remote);
 }
 function hideScoreboard() {
   scoreboardModal.classList.remove('open');
