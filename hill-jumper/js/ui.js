@@ -22,8 +22,6 @@ function hits(btn, x, y) {
 }
 
 function handleCanvasPress(x, y) {
-  // Convert portrait-rotated viewport coords → game coords
-  if (isRotated) { const gx = W - y; y = x; x = gx; }
   ensureAudio();
   if (showWelcome) {
     if (hits(welcomeSwitchBtn, x, y))  { showUserModal('switch'); return; }

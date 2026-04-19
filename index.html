@@ -56,13 +56,13 @@
     body { display: flex; height: 100vh; overflow: hidden; }
 
     header {
-      width: 300px;
+      width: 280px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
       justify-content: center;
       text-align: left;
-      padding: 48px 40px;
+      padding: 48px 36px;
       border-right: 1px solid rgba(0,0,0,0.09);
       height: 100vh;
     }
@@ -72,8 +72,46 @@
       overflow-y: auto;
       max-width: none;
       margin: 0;
-      padding: 40px 32px;
+      padding: 40px 28px;
       align-content: start;
+    }
+  }
+
+  /* ── Short viewport: landscape phones & small tablets ───── */
+  @media (max-height: 520px) {
+    header { padding: 18px 24px 10px; }
+    .site-title { font-size: clamp(22px, 5.5vw, 32px); }
+    .site-sub { margin-top: 5px; font-size: 13px; }
+    .card-art { height: 120px; }
+    .card-body { padding: 10px 14px 12px; }
+    .card-name { font-size: 18px; margin-bottom: 3px; }
+    .card-desc { font-size: 13px; line-height: 1.45; }
+    .card-play { margin-top: 9px; font-size: 12px; padding: 6px 12px; }
+    .card-play-soon { margin-top: 9px; font-size: 12px; }
+    .grid { gap: 16px; padding: 0 16px 40px; }
+
+    /* Compact hill art at 120px */
+    .art-hj .hill-back { bottom: 18px; height: 86px; border-radius: 55% 60% 0 0 / 70px 70px 0 0; }
+    .art-hj .hill-front { height: 60px; border-radius: 48% 52% 0 0 / 55px 55px 0 0; }
+    .art-hj .grass { bottom: 58px; }
+    .art-hj .chars { bottom: 54px; font-size: 26px; gap: 14px; }
+    .art-hj::before { top: 14px; width: 34px; height: 34px; }
+    .art-hj .c1 { top: 18px; } .art-hj .c2 { top: 14px; }
+    .art-hj .c3 { top: 16px; } .art-hj .c4 { top: 12px; }
+  }
+
+  /* Wide + short: tighter sidebar */
+  @media (min-width: 800px) and (max-height: 520px) {
+    header {
+      width: 200px;
+      padding: 20px 24px;
+      justify-content: flex-start;
+      padding-top: 32px;
+    }
+    .grid {
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 14px;
+      padding: 20px 20px;
     }
   }
 

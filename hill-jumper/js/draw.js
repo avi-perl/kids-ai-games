@@ -409,113 +409,236 @@ function drawWelcome() {
   ctx.fillRect(0, 0, W, H);
 
   const cx = W / 2;
-  const vfloor = H >= 450 ? Math.min(Math.min(W, H), 480) * 0.036 : 0;
-  const fs = (fh, fw) => Math.round(Math.max(Math.min(H * fh, W * fw), vfloor));
+  // Landscape-phone mode: short & wide
+  const shortWide = H < 480 && W > H;
 
-  // Title
-  const s1 = fs(0.10, 0.085);
-  ctx.font = `bold ${s1}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#FFE600';
-  ctx.fillText('HILL JUMPER', cx, H * 0.14 + s1);
+  if (shortWide) {
+    // ── Two-column landscape layout ─────────────────────────────
+    const leftW  = W * 0.42;
+    const divX   = leftW + Math.max(W * 0.025, 14);
+    const rightX = divX + Math.max(W * 0.018, 10);
+    const rightW = W - rightX - Math.max(W * 0.02, 10);
+    const pad    = H * 0.08;
 
-  // Subtitle
-  const s2 = fs(0.032, 0.026);
-  ctx.font = `${s2}px monospace`;
-  ctx.fillStyle = '#ccc';
-  ctx.fillText('Run as far as you can!', cx, H * 0.14 + s1 + s2 * 1.6);
+    // Font sizes keyed to viewport height
+    const s1    = Math.max(Math.round(Math.min(H * 0.11, leftW * 0.115)), 18);
+    const s2    = Math.max(Math.round(H * 0.040), 11);
+    const ufs   = Math.max(Math.round(H * 0.044), 12);
+    const btnFs = Math.max(Math.round(H * 0.055), 12);
+    const lbfs  = Math.max(Math.round(H * 0.041), 11);
+    const sc    = Math.max(Math.round(H * 0.034), 9);
+    const ss    = Math.max(Math.round(H * 0.054), 12);
+    const bs    = Math.max(Math.round(H * 0.040), 10);
 
-  // ── User display pill ──────────────────────────────────
-  const ufs    = Math.max(fs(0.024, 0.019), 12);
-  const uLabel = currentUser ? '👤  ' + currentUser + '   ▾' : '👤  Pick a player  →';
-  ctx.font = `bold ${ufs}px monospace`;
-  const uPillW = Math.min(ctx.measureText(uLabel).width + 28, W * 0.72);
-  const uPillH = ufs + 18;
-  const uPillX = cx - uPillW / 2;
-  const uPillY = H * 0.14 + s1 + s2 * 4.0;
-  ctx.fillStyle   = currentUser ? 'rgba(74,144,217,0.22)' : 'rgba(255,230,0,0.15)';
-  ctx.strokeStyle = currentUser ? '#4A90D9' : '#FFE600';
-  ctx.lineWidth   = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(uPillX, uPillY, uPillW, uPillH, uPillH / 2);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle = currentUser ? '#90C8F0' : '#FFE600';
-  ctx.textAlign = 'center';
-  ctx.fillText(uLabel, cx, uPillY + uPillH * 0.68);
-  welcomeSwitchBtn = { x: uPillX, y: uPillY, w: uPillW, h: uPillH };
-
-  let gy = Math.max(H * 0.30, uPillY + uPillH + Math.max(H * 0.025, 14));
-
-  const section = (title) => {
-    const ss = fs(0.030, 0.024);
-    ctx.font = `bold ${ss}px monospace`;
+    // ── Left column ────────────────────────────────────────────
+    const titleY = pad + s1;
+    ctx.font = `bold ${s1}px monospace`;
+    ctx.textAlign = 'center';
     ctx.fillStyle = '#FFE600';
-    ctx.textAlign = 'left';
-    ctx.fillText(title, W * 0.10, gy);
-    gy += ss * 1.8;
-  };
-  const bullet = (txt) => {
-    const bs = fs(0.026, 0.021);
-    ctx.font = `${bs}px monospace`;
-    ctx.fillStyle = '#ddd';
-    ctx.textAlign = 'left';
-    ctx.fillText('  • ' + txt, W * 0.10, gy);
-    gy += bs * 1.7;
-  };
+    ctx.fillText('HILL JUMPER', leftW / 2, titleY);
 
-  section('CONTROLS');
-  bullet('SPACE / ↑ / Tap  →  Jump');
-  bullet('Double-tap in air  →  Double jump!');
-  bullet('Walk into the police car to ride it');
-  bullet('Jump while riding  →  Car jumps');
-  bullet('Double jump while riding  →  Bail out');
-  gy += H * 0.02;
+    ctx.font = `${s2}px monospace`;
+    ctx.fillStyle = '#ccc';
+    ctx.fillText('Run as far as you can!', leftW / 2, titleY + s2 * 1.6);
 
-  section('SCORING');
-  bullet('Distance  →  1 pt per 1000 px');
-  bullet('Airtime   →  1 pt per 1000 px in the air');
-  bullet('Car boops →  1 pt per critter hit');
+    // User pill
+    const uLabel = currentUser ? '👤  ' + currentUser + '   ▾' : '👤  Pick a player  →';
+    ctx.font = `bold ${ufs}px monospace`;
+    const uPillW = Math.min(ctx.measureText(uLabel).width + 24, leftW * 0.90);
+    const uPillH = ufs + 14;
+    const uPillX = leftW / 2 - uPillW / 2;
+    const uPillY = titleY + s2 * 3.3;
+    ctx.fillStyle   = currentUser ? 'rgba(74,144,217,0.22)' : 'rgba(255,230,0,0.15)';
+    ctx.strokeStyle = currentUser ? '#4A90D9' : '#FFE600';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(uPillX, uPillY, uPillW, uPillH, uPillH / 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = currentUser ? '#90C8F0' : '#FFE600';
+    ctx.textAlign = 'center';
+    ctx.fillText(uLabel, leftW / 2, uPillY + uPillH * 0.68);
+    welcomeSwitchBtn = { x: uPillX, y: uPillY, w: uPillW, h: uPillH };
 
-  // ── Start button ───────────────────────────────────────
-  gy += H * 0.03;
-  const btnW = Math.min(W * 0.55, 280), btnH = Math.min(Math.max(H * 0.075, 46), 58);
-  const btnX = cx - btnW / 2, btnY = gy;
-  restartBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
-  ctx.fillStyle = currentUser ? '#27ae60' : '#3a5a45';
-  ctx.beginPath();
-  ctx.roundRect(btnX, btnY, btnW, btnH, btnH * 0.22);
-  ctx.fill();
-  const s4 = fs(0.032, 0.026);
-  ctx.font = `bold ${s4}px monospace`;
-  ctx.fillStyle = currentUser ? '#fff' : '#888';
-  ctx.textAlign = 'center';
-  ctx.fillText(currentUser ? '▶  Let\'s Go!' : '▶  Pick a player first', cx, btnY + btnH * 0.65);
+    // Start button
+    const btnW = Math.min(leftW * 0.84, 260);
+    const btnH = Math.min(Math.max(Math.round(H * 0.13), 40), 56);
+    const btnX = leftW / 2 - btnW / 2;
+    const btnY = uPillY + uPillH + H * 0.040;
+    restartBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
+    ctx.fillStyle = currentUser ? '#27ae60' : '#3a5a45';
+    ctx.beginPath();
+    ctx.roundRect(btnX, btnY, btnW, btnH, btnH * 0.22);
+    ctx.fill();
+    ctx.font = `bold ${btnFs}px monospace`;
+    ctx.fillStyle = currentUser ? '#fff' : '#888';
+    ctx.textAlign = 'center';
+    ctx.fillText(currentUser ? '▶  Let\'s Go!' : '▶  Pick player first', leftW / 2, btnY + btnH * 0.65);
 
-  // ── Leaderboard button ─────────────────────────────────
-  const lbfs = Math.max(fs(0.024, 0.019), 12);
-  ctx.font = `${lbfs}px monospace`;
-  const lbLabel = '🏆  Leaderboard';
-  const lbW  = Math.min(ctx.measureText(lbLabel).width + 28, btnW);
-  const lbH  = lbfs + 16;
-  const lbX  = cx - lbW / 2;
-  const lbY  = btnY + btnH + Math.max(H * 0.018, 10);
-  ctx.fillStyle   = 'rgba(255,215,0,0.10)';
-  ctx.strokeStyle = 'rgba(255,215,0,0.45)';
-  ctx.lineWidth   = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(lbX, lbY, lbW, lbH, lbH / 2);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#FFD700';
-  ctx.textAlign = 'center';
-  ctx.fillText(lbLabel, cx, lbY + lbH * 0.68);
-  welcomeLeaderBtn = { x: lbX, y: lbY, w: lbW, h: lbH };
+    // Leaderboard button
+    ctx.font = `${lbfs}px monospace`;
+    const lbLabel = '🏆  Leaderboard';
+    const lbW = Math.min(ctx.measureText(lbLabel).width + 24, btnW);
+    const lbH = lbfs + 12;
+    const lbX = leftW / 2 - lbW / 2;
+    const lbY = btnY + btnH + H * 0.028;
+    ctx.fillStyle   = 'rgba(255,215,0,0.10)';
+    ctx.strokeStyle = 'rgba(255,215,0,0.45)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(lbX, lbY, lbW, lbH, lbH / 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#FFD700';
+    ctx.textAlign = 'center';
+    ctx.fillText(lbLabel, leftW / 2, lbY + lbH * 0.68);
+    welcomeLeaderBtn = { x: lbX, y: lbY, w: lbW, h: lbH };
 
-  // Credits
-  const sc = fs(0.022, 0.018);
-  ctx.font = `${sc}px monospace`;
-  ctx.fillStyle = 'rgba(170,170,170,0.6)';
-  ctx.textAlign = 'center';
-  ctx.fillText('Chava Leeba & Aaron Nachman', cx, lbY + lbH + sc * 2.0);
+    // Credits
+    ctx.font = `${sc}px monospace`;
+    ctx.fillStyle = 'rgba(170,170,170,0.55)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Chava Leeba & Aaron Nachman', leftW / 2, H - sc * 1.4);
+
+    // Divider line
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(divX, H * 0.06);
+    ctx.lineTo(divX, H * 0.94);
+    ctx.stroke();
+
+    // ── Right column ───────────────────────────────────────────
+    let ry = pad;
+    const rsec = (title) => {
+      ctx.font = `bold ${ss}px monospace`;
+      ctx.fillStyle = '#FFE600';
+      ctx.textAlign = 'left';
+      ctx.fillText(title, rightX, ry + ss);
+      ry += ss * 1.7;
+    };
+    const rbullet = (txt) => {
+      ctx.font = `${bs}px monospace`;
+      ctx.fillStyle = '#ddd';
+      ctx.textAlign = 'left';
+      ctx.fillText('• ' + txt, rightX, ry + bs);
+      ry += bs * 1.55;
+    };
+
+    rsec('CONTROLS');
+    rbullet('SPACE / ↑ / Tap  →  Jump');
+    rbullet('Double-tap in air  →  2nd jump');
+    rbullet('Walk into police car  →  Board it');
+    rbullet('Jump while riding  →  Car jumps');
+    rbullet('2× jump riding  →  Bail out');
+    ry += ss * 0.85;
+    rsec('SCORING');
+    rbullet('Distance  →  1 pt / 1000 px');
+    rbullet('Airtime   →  1 pt / 1000 px');
+    rbullet('Car boops →  1 pt / critter');
+
+  } else {
+    // ── Original portrait / tall-screen layout ─────────────────
+    const vfloor = H >= 450 ? Math.min(Math.min(W, H), 480) * 0.036 : 0;
+    const fs = (fh, fw) => Math.round(Math.max(Math.min(H * fh, W * fw), vfloor));
+
+    const s1 = fs(0.10, 0.085);
+    ctx.font = `bold ${s1}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFE600';
+    ctx.fillText('HILL JUMPER', cx, H * 0.14 + s1);
+
+    const s2 = fs(0.032, 0.026);
+    ctx.font = `${s2}px monospace`;
+    ctx.fillStyle = '#ccc';
+    ctx.fillText('Run as far as you can!', cx, H * 0.14 + s1 + s2 * 1.6);
+
+    const ufs    = Math.max(fs(0.024, 0.019), 12);
+    const uLabel = currentUser ? '👤  ' + currentUser + '   ▾' : '👤  Pick a player  →';
+    ctx.font = `bold ${ufs}px monospace`;
+    const uPillW = Math.min(ctx.measureText(uLabel).width + 28, W * 0.72);
+    const uPillH = ufs + 18;
+    const uPillX = cx - uPillW / 2;
+    const uPillY = H * 0.14 + s1 + s2 * 4.0;
+    ctx.fillStyle   = currentUser ? 'rgba(74,144,217,0.22)' : 'rgba(255,230,0,0.15)';
+    ctx.strokeStyle = currentUser ? '#4A90D9' : '#FFE600';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(uPillX, uPillY, uPillW, uPillH, uPillH / 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = currentUser ? '#90C8F0' : '#FFE600';
+    ctx.textAlign = 'center';
+    ctx.fillText(uLabel, cx, uPillY + uPillH * 0.68);
+    welcomeSwitchBtn = { x: uPillX, y: uPillY, w: uPillW, h: uPillH };
+
+    let gy = Math.max(H * 0.30, uPillY + uPillH + Math.max(H * 0.025, 14));
+
+    const section = (title) => {
+      const ss = fs(0.030, 0.024);
+      ctx.font = `bold ${ss}px monospace`;
+      ctx.fillStyle = '#FFE600';
+      ctx.textAlign = 'left';
+      ctx.fillText(title, W * 0.10, gy);
+      gy += ss * 1.8;
+    };
+    const bullet = (txt) => {
+      const bs = fs(0.026, 0.021);
+      ctx.font = `${bs}px monospace`;
+      ctx.fillStyle = '#ddd';
+      ctx.textAlign = 'left';
+      ctx.fillText('  • ' + txt, W * 0.10, gy);
+      gy += bs * 1.7;
+    };
+
+    section('CONTROLS');
+    bullet('SPACE / ↑ / Tap  →  Jump');
+    bullet('Double-tap in air  →  Double jump!');
+    bullet('Walk into the police car to ride it');
+    bullet('Jump while riding  →  Car jumps');
+    bullet('Double jump while riding  →  Bail out');
+    gy += H * 0.02;
+
+    section('SCORING');
+    bullet('Distance  →  1 pt per 1000 px');
+    bullet('Airtime   →  1 pt per 1000 px in the air');
+    bullet('Car boops →  1 pt per critter hit');
+
+    gy += H * 0.03;
+    const btnW = Math.min(W * 0.55, 280), btnH = Math.min(Math.max(H * 0.075, 46), 58);
+    const btnX = cx - btnW / 2, btnY = gy;
+    restartBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
+    ctx.fillStyle = currentUser ? '#27ae60' : '#3a5a45';
+    ctx.beginPath();
+    ctx.roundRect(btnX, btnY, btnW, btnH, btnH * 0.22);
+    ctx.fill();
+    const s4 = fs(0.032, 0.026);
+    ctx.font = `bold ${s4}px monospace`;
+    ctx.fillStyle = currentUser ? '#fff' : '#888';
+    ctx.textAlign = 'center';
+    ctx.fillText(currentUser ? '▶  Let\'s Go!' : '▶  Pick a player first', cx, btnY + btnH * 0.65);
+
+    const lbfs = Math.max(fs(0.024, 0.019), 12);
+    ctx.font = `${lbfs}px monospace`;
+    const lbLabel = '🏆  Leaderboard';
+    const lbW  = Math.min(ctx.measureText(lbLabel).width + 28, btnW);
+    const lbH  = lbfs + 16;
+    const lbX  = cx - lbW / 2;
+    const lbY  = btnY + btnH + Math.max(H * 0.018, 10);
+    ctx.fillStyle   = 'rgba(255,215,0,0.10)';
+    ctx.strokeStyle = 'rgba(255,215,0,0.45)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(lbX, lbY, lbW, lbH, lbH / 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#FFD700';
+    ctx.textAlign = 'center';
+    ctx.fillText(lbLabel, cx, lbY + lbH * 0.68);
+    welcomeLeaderBtn = { x: lbX, y: lbY, w: lbW, h: lbH };
+
+    const sc = fs(0.022, 0.018);
+    ctx.font = `${sc}px monospace`;
+    ctx.fillStyle = 'rgba(170,170,170,0.6)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Chava Leeba & Aaron Nachman', cx, lbY + lbH + sc * 2.0);
+  }
 }
 
 function drawGameOver() {
@@ -539,7 +662,10 @@ function drawGameOver() {
   const cx = W / 2;
   ctx.textAlign = 'center';
 
-  // Responsive font sizes — floor to ~14px on portrait phones to stay readable
+  // Compact mode for landscape phones
+  const shortWide = H < 480 && W > H;
+  const sp = shortWide ? 0.72 : 1.0; // spacing scale
+
   const vfloor = H >= 450 ? Math.min(Math.min(W, H), 480) * 0.036 : 0;
   const fs = (fh, fw) => Math.round(Math.max(Math.min(H * fh, W * fw), vfloor));
   const divider = (y) => {
@@ -547,32 +673,32 @@ function drawGameOver() {
     ctx.beginPath(); ctx.moveTo(W * 0.10, y); ctx.lineTo(W * 0.90, y); ctx.stroke();
   };
 
-  let gy = H * 0.10;
+  let gy = H * (shortWide ? 0.055 : 0.10);
 
   // ── FINAL SCORE ───────────────────────────────────────────
   const s1 = fs(0.074, 0.060);
   ctx.font = `bold ${s1}px monospace`;
   ctx.fillStyle = '#FFE600';
   ctx.fillText('FINAL SCORE: ' + finalScore, cx, gy + s1);
-  gy += s1 * 1.5 + H * 0.018;
-  divider(gy); gy += H * 0.042;
+  gy += s1 * (1.3 * sp + 0.2) + H * 0.018 * sp;
+  divider(gy); gy += H * 0.042 * sp;
 
   // ── Death cause ───────────────────────────────────────────
   const s2 = fs(0.054, 0.044);
   ctx.font = `bold ${s2}px monospace`;
   ctx.fillStyle = color;
   ctx.fillText(title, cx, gy + s2);
-  gy += s2 * 1.35;
+  gy += s2 * (1.2 * sp + 0.15);
 
   if (sub) {
     const s3 = fs(0.027, 0.022);
     ctx.font = `${s3}px monospace`;
     ctx.fillStyle = '#ccc';
     ctx.fillText(sub, cx, gy + s3);
-    gy += s3 * 1.6;
+    gy += s3 * (1.4 * sp + 0.2);
   }
-  gy += H * 0.038;
-  divider(gy); gy += H * 0.042;
+  gy += H * 0.038 * sp;
+  divider(gy); gy += H * 0.042 * sp;
 
   // ── Score breakdown ───────────────────────────────────────
   const rs   = fs(0.030, 0.024);
@@ -580,14 +706,14 @@ function drawGameOver() {
   const vCol = cx + W * 0.06;
   const pCol = cx + W * 0.30;
 
-  // Column headers
   ctx.font = `${Math.round(rs * 0.78)}px monospace`;
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.textAlign = 'left';  ctx.fillText('CATEGORY',  lCol, gy);
   ctx.textAlign = 'right'; ctx.fillText('VALUE', vCol, gy);
   ctx.fillText('PTS', pCol, gy);
-  gy += rs * 1.3;
+  gy += rs * (1.1 * sp + 0.2);
 
+  const rowGap = rs * (1.4 * sp + 0.25);
   function scoreRow(label, value, pts, highlight) {
     ctx.font = `${rs}px monospace`;
     ctx.textAlign = 'left';
@@ -598,7 +724,7 @@ function drawGameOver() {
     ctx.fillText(value, vCol, gy);
     ctx.fillStyle = pts > 0 ? '#FFD700' : '#666';
     ctx.fillText('+' + pts, pCol, gy);
-    gy += rs * 1.65;
+    gy += rowGap;
   }
 
   scoreRow('Distance',
@@ -612,29 +738,29 @@ function drawGameOver() {
     carKills,
     carKills > 0);
 
-  gy += H * 0.012;
-  divider(gy); gy += H * 0.038;
+  gy += H * 0.012 * sp;
+  divider(gy); gy += H * 0.030 * sp;
 
   // ── Rank display ──────────────────────────────────────────
   if (lastSavedEntry) {
     const rank = UserDB.rank(lastSavedEntry);
     if (rank) {
-      const rfs = Math.max(fs(0.028, 0.023), 13);
-      const rankStr = rank === 1 ? '🏆 New #1 — you\'re on top!' :
-                      rank <= 3  ? `🥇 You ranked #${rank} — great run!` :
-                                   `📍 You ranked #${rank}`;
+      const rfs = Math.max(fs(shortWide ? 0.024 : 0.028, shortWide ? 0.019 : 0.023), shortWide ? 11 : 13);
+      const rankStr = shortWide
+        ? (rank === 1 ? '🏆 New #1!' : rank <= 3 ? `🥇 Ranked #${rank}!` : `📍 Rank #${rank}`)
+        : (rank === 1 ? '🏆 New #1 — you\'re on top!' : rank <= 3 ? `🥇 You ranked #${rank} — great run!` : `📍 You ranked #${rank}`);
       ctx.font = `bold ${rfs}px monospace`;
       ctx.fillStyle = rank <= 3 ? '#FFD700' : 'rgba(255,255,255,0.65)';
       ctx.textAlign = 'center';
       ctx.fillText(rankStr, cx, gy + rfs);
-      gy += rfs * 2.2;
+      gy += rfs * (shortWide ? 1.7 : 2.2);
     }
   }
 
   // ── Play Again button ─────────────────────────────────────
   gy += Math.max(H * 0.008, 4);
   const btnW = Math.min(W * 0.55, 280);
-  const btnH = Math.min(Math.max(H * 0.072, 44), 58);
+  const btnH = Math.min(Math.max(H * (shortWide ? 0.115 : 0.072), 40), 58);
   const btnX = cx - btnW / 2;
   const btnY = gy;
   restartBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
@@ -655,7 +781,7 @@ function drawGameOver() {
   const lbW  = Math.min(ctx.measureText(lbLabel).width + 28, btnW);
   const lbH  = lbfs + 16;
   const lbX  = cx - lbW / 2;
-  const lbY  = btnY + btnH + Math.max(H * 0.018, 10);
+  const lbY  = btnY + btnH + Math.max(H * 0.018, 8);
   ctx.fillStyle   = 'rgba(255,215,0,0.10)';
   ctx.strokeStyle = 'rgba(255,215,0,0.45)';
   ctx.lineWidth   = 1.5;
