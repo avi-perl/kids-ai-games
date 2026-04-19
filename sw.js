@@ -1,4 +1,4 @@
-const CACHE = 'fun-games-v1';
+const CACHE = 'fun-games-v2';
 
 const PRECACHE = [
   './',

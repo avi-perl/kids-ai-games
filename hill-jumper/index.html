@@ -405,16 +405,16 @@ async function sbFetchScores(n = 50) {
   } catch { return null; }
 }
 
-async function sbFetchUsers() {
+async function sbNameTaken(name) {
   try {
     const res = await fetch(
-      `${SB_URL}/rest/v1/scores?select=name&order=name.asc`,
+      `${SB_URL}/rest/v1/scores?select=name&name=ilike.${encodeURIComponent(name)}&limit=1`,
       { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } }
     );
-    if (!res.ok) return null;
+    if (!res.ok) return false;
     const rows = await res.json();
-    return [...new Set(rows.map(r => r.name))];
-  } catch { return null; }
+    return rows.length > 0;
+  } catch { return false; }
 }
 
 // ─── Physics ──────────────────────────────────────────────
@@ -2414,18 +2414,18 @@ const scoreboardModal = document.getElementById('scoreboard-modal');
 const sbContent      = document.getElementById('sb-content');
 
 let userModalForced = false;  // true = must pick/create before dismissing
-let knownUsers = [];          // cache of all known names (remote + local)
 
 function renderUserList() {
-  const cur = UserDB.current();
+  const users = UserDB.users();
+  const cur   = UserDB.current();
   userListEl.innerHTML = '';
-  knownUsers.forEach(name => {
+  users.forEach(u => {
     const card = document.createElement('div');
-    card.className = 'user-card' + (name === cur ? ' active' : '');
-    card.innerHTML = `<span class="user-name">${escHtml(name)}</span>${name === cur ? '<span class="user-check">✓</span>' : ''}`;
+    card.className = 'user-card' + (u.name === cur ? ' active' : '');
+    card.innerHTML = `<span class="user-name">${escHtml(u.name)}</span>${u.name === cur ? '<span class="user-check">✓</span>' : ''}`;
     card.addEventListener('click', () => {
-      UserDB.setCurrent(name);
-      currentUser = name;
+      UserDB.setCurrent(u.name);
+      currentUser = u.name;
       renderUserList();
       updateUserBtn();
       userPlayBtn.disabled = false;
@@ -2435,21 +2435,13 @@ function renderUserList() {
   userPlayBtn.disabled = !cur;
 }
 
-async function loadAndRenderUsers() {
-  userListEl.innerHTML = '<div class="sb-empty" style="padding:16px 0;font-size:13px">Loading…</div>';
-  const remote = await sbFetchUsers();
-  const localNames = UserDB.users().map(u => u.name);
-  knownUsers = remote ? [...new Set([...remote, ...localNames])] : localNames;
-  renderUserList();
-  if (knownUsers.length === 0) setTimeout(() => newNameInput.focus(), 80);
-}
-
 function showUserModal(mode) {
   userModalForced = !UserDB.current();
   userModalTitle.textContent = mode === 'switch' ? 'Switch Player' : 'Who\'s Playing?';
+  renderUserList();
   newNameInput.value = '';
   userModal.classList.add('open');
-  loadAndRenderUsers();
+  if (UserDB.users().length === 0) setTimeout(() => newNameInput.focus(), 80);
 }
 
 function hideUserModal() {
