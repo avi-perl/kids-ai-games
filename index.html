@@ -51,6 +51,32 @@
     padding: 0 24px 80px;
   }
 
+  /* ── Wide: side-by-side ──────────────────────────────── */
+  @media (min-width: 800px) {
+    body { display: flex; height: 100vh; overflow: hidden; }
+
+    header {
+      width: 300px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: left;
+      padding: 48px 40px;
+      border-right: 1px solid rgba(0,0,0,0.09);
+      height: 100vh;
+    }
+
+    .grid {
+      flex: 1;
+      overflow-y: auto;
+      max-width: none;
+      margin: 0;
+      padding: 40px 32px;
+      align-content: start;
+    }
+  }
+
   /* ── Card base ───────────────────────────────────────── */
   .card {
     display: block;

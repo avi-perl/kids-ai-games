@@ -2453,17 +2453,26 @@ function hideUserModal() {
 
 const newUserError = document.getElementById('new-user-error');
 
-function addUserFromInput() {
+async function addUserFromInput() {
   const name = newNameInput.value.trim();
   if (!name) return;
-  if (knownUsers.some(n => n.toLowerCase() === name.toLowerCase())) {
+  if (UserDB.users().some(u => u.name.toLowerCase() === name.toLowerCase())) {
+    newUserError.textContent = 'That name is already taken.';
+    newNameInput.select();
+    return;
+  }
+  addUserBtn.disabled = true;
+  addUserBtn.textContent = '…';
+  const taken = await sbNameTaken(name);
+  addUserBtn.disabled = false;
+  addUserBtn.textContent = 'Add';
+  if (taken) {
     newUserError.textContent = 'That name is already taken.';
     newNameInput.select();
     return;
   }
   newUserError.textContent = '';
   UserDB.addUser(name);
-  knownUsers = [...new Set([...knownUsers, name])];
   currentUser = name;
   newNameInput.value = '';
   renderUserList();
