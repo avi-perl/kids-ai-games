@@ -78,6 +78,10 @@
     #ui { font-size: 17px; top: 14px; }
   }
 
+  /* ── Portrait-phone rotation: hide HTML overlays, canvas covers everything ── */
+  body.portrait-mode #ui,
+  body.portrait-mode #toolbar { display: none; }
+
   /* ── User & Scoreboard Modals ─────────────────────────── */
   .game-modal {
     display: none; position: fixed; inset: 0;
@@ -276,15 +280,41 @@ let DPR = window.devicePixelRatio || 1;
 let skyCache    = null;   // offscreen canvas for the static sky
 let terrainGrad = null;   // terrain fill gradient
 let lastScore   = -1;     // only write scoreEl when it changes
+let isRotated   = false;  // true when canvas is rotated 90° CW for portrait phones
 
 function resizeCanvas() {
   DPR = window.devicePixelRatio || 1;
-  W   = window.innerWidth;
-  H   = window.innerHeight;
-  canvas.width        = Math.round(W * DPR);
-  canvas.height       = Math.round(H * DPR);
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  isRotated = vh > vw && vw < 600;
+  document.body.classList.toggle('portrait-mode', isRotated);
+
+  if (isRotated) {
+    // Swap dimensions so game runs in landscape inside the rotated canvas
+    W = vh;
+    H = vw;
+    // Rotate canvas 90° CW so it fills the portrait viewport
+    canvas.style.position      = 'fixed';
+    canvas.style.top           = '0';
+    canvas.style.left          = '0';
+    canvas.style.width         = vh + 'px';
+    canvas.style.height        = vw + 'px';
+    canvas.style.transformOrigin = '0 0';
+    canvas.style.transform     = `translateY(${vh}px) rotate(90deg)`;
+  } else {
+    W = vw;
+    H = vh;
+    canvas.style.position      = '';
+    canvas.style.top           = '';
+    canvas.style.left          = '';
+    canvas.style.width         = vw + 'px';
+    canvas.style.height        = vh + 'px';
+    canvas.style.transformOrigin = '';
+    canvas.style.transform     = '';
+  }
+
+  canvas.width  = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   skyCache    = null;
   terrainGrad = null;
@@ -700,13 +730,8 @@ function stopCarRumble() {
 }
 
 // ─── Input ────────────────────────────────────────────────
-function hitRestartBtn(clientX, clientY) {
-  if (!restartBtn) return false;
-  const r = canvas.getBoundingClientRect();
-  const sx = (clientX - r.left) * (W / r.width);
-  const sy = (clientY - r.top)  * (H / r.height);
-  return sx >= restartBtn.x && sx <= restartBtn.x + restartBtn.w &&
-         sy >= restartBtn.y && sy <= restartBtn.y + restartBtn.h;
+function hitRestartBtn(x, y) {
+  return hits(restartBtn, x, y);
 }
 
 document.addEventListener('keydown', e => {
@@ -728,6 +753,8 @@ function hits(btn, x, y) {
 }
 
 function handleCanvasPress(x, y) {
+  // Convert portrait-rotated viewport coords → game coords
+  if (isRotated) { const gx = W - y; y = x; x = gx; }
   ensureAudio();
   if (showWelcome) {
     if (hits(welcomeSwitchBtn, x, y))  { showUserModal('switch'); return; }
