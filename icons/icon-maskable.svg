@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Maskable: background fills edge-to-edge; all content within inner 80% (safe zone ≥ 56px inset) -->
+  <defs>
+    <linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2b6cb0"/>
+      <stop offset="55%" stop-color="#4a90d9"/>
+      <stop offset="100%" stop-color="#87ceeb"/>
+    </linearGradient>
+  </defs>
+  <!-- Full-bleed sky (no clip) -->
+  <rect width="512" height="512" fill="url(#sky2)"/>
+  <!-- Sun -->
+  <circle cx="390" cy="118" r="56" fill="#fff9c4"/>
+  <circle cx="390" cy="118" r="70" fill="#ffe082" opacity="0.35"/>
+  <!-- Clouds -->
+  <g fill="rgba(255,255,255,0.80)">
+    <ellipse cx="120" cy="100" rx="42" ry="22"/>
+    <ellipse cx="156" cy="90"  rx="30" ry="18"/>
+    <ellipse cx="94"  cy="90"  rx="28" ry="16"/>
+  </g>
+  <!-- Hill (full bleed) -->
+  <ellipse cx="256" cy="530" rx="380" ry="240" fill="#2d5a27"/>
+  <rect x="0" y="340" width="512" height="6" fill="#5aaf4f"/>
+  <ellipse cx="440" cy="540" rx="260" ry="200" fill="#3a7a30"/>
+  <!-- Character (within safe zone) -->
+  <circle cx="196" cy="262" r="32" fill="#fff"/>
+  <rect x="179" y="292" width="34" height="44" rx="9" fill="#fff"/>
+  <line x1="213" y1="304" x2="244" y2="286" stroke="#fff" stroke-width="15" stroke-linecap="round"/>
+  <line x1="179" y1="304" x2="150" y2="288" stroke="#fff" stroke-width="15" stroke-linecap="round"/>
+  <line x1="200" y1="334" x2="222" y2="366" stroke="#fff" stroke-width="15" stroke-linecap="round"/>
+  <line x1="192" y1="334" x2="166" y2="360" stroke="#fff" stroke-width="15" stroke-linecap="round"/>
+</svg>

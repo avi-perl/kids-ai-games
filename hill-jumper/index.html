@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Hill Jumper</title>
+<meta name="theme-color" content="#87ceeb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="../manifest.json">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #87CEEB; overflow: hidden; font-family: monospace; }
@@ -2451,6 +2454,10 @@ reset();
 updateUserBtn();
 if (!currentUser) showUserModal();
 loop();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('../sw.js', { scope: '../' });
+}
 </script>
 </body>
 </html>
