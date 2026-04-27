@@ -4,7 +4,7 @@
 ```
 kids-game/
   index.html          ← homepage / game hub (neal.fun-inspired grid of game cards)
-  hill-jumper/
+  01-hill-jumper/
     index.html        ← Hill Jumper game (HTML + CSS + <script> imports only)
     js/
       canvas.js       ← canvas, ctx, W/H/DPR, resizeCanvas

@@ -37,7 +37,18 @@ let currentUser = UserDB.current();
 const SB_KEY = 'sb_publishable_p6YpYEk1sDGkXtor_YtkOA_QgHrsEH4';
 const SB_URL = 'https://xdxeahnkmdfwzxvgmnvq.supabase.co';
 
+// Online leaderboard is opt-in. When disabled, all sb* calls are no-ops
+// and the game runs entirely off localStorage.
+const REMOTE_KEY = 'hj_remote_enabled';
+function remoteEnabled() {
+  try { return localStorage.getItem(REMOTE_KEY) === '1'; } catch { return false; }
+}
+function setRemoteEnabled(on) {
+  try { localStorage.setItem(REMOTE_KEY, on ? '1' : '0'); } catch {}
+}
+
 async function sbPostScore(entry) {
+  if (!remoteEnabled()) return;
   try {
     await fetch(`${SB_URL}/rest/v1/scores`, {
       method: 'POST',
@@ -59,6 +70,7 @@ async function sbPostScore(entry) {
 }
 
 async function sbFetchScores(n = 50) {
+  if (!remoteEnabled()) return null;
   try {
     const res = await fetch(
       `${SB_URL}/rest/v1/scores?select=name,score,distance,airtime,boops,played_at&order=score.desc&limit=${n}`,
@@ -78,6 +90,7 @@ async function sbFetchScores(n = 50) {
 }
 
 async function sbNameTaken(name) {
+  if (!remoteEnabled()) return false;
   try {
     const res = await fetch(
       `${SB_URL}/rest/v1/scores?select=name&name=ilike.${encodeURIComponent(name)}&limit=1`,

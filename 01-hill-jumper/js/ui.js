@@ -107,6 +107,14 @@ document.getElementById('sfx-toggle').addEventListener('change', function() {
   if (_rumbleGain) _rumbleGain.gain.value = sfxMuted ? 0 : 0.05;
 });
 
+// Online leaderboard toggle (opt-in; default off)
+const remoteToggle = document.getElementById('remote-toggle');
+remoteToggle.checked = remoteEnabled();
+remoteToggle.addEventListener('change', function() {
+  setRemoteEnabled(this.checked);
+  if (scoreboardModal.classList.contains('open')) showScoreboard();
+});
+
 // ─── User & Scoreboard modal logic ────────────────────────────
 
 function updateUserBtn() {

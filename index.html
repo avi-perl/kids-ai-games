@@ -237,6 +237,70 @@
   .art-hj .c3 { width:36px;height:22px; top:24px; left:50%; }
   .art-hj .c4 { width:26px;height:16px; top:18px; left:55%; }
 
+  /* ── Puppy Room card art ─────────────────────────────── */
+  .art-pr {
+    background: linear-gradient(180deg, #c9a878 0%, #b08858 45%, #8a6638 100%);
+  }
+  /* Floor */
+  .art-pr .floor {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 56px;
+    background: repeating-linear-gradient(
+      90deg,
+      #6d4a26 0 22px,
+      #5a3c1e 22px 24px
+    );
+    border-top: 2px solid #3d280f;
+  }
+  /* Window */
+  .art-pr .window {
+    position: absolute;
+    top: 22px; left: 50%;
+    transform: translateX(-50%);
+    width: 110px; height: 78px;
+    background: linear-gradient(180deg, #fce38a 0%, #ffd76a 60%, #f6b94a 100%);
+    border: 5px solid #5a3c1e;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.25);
+  }
+  .art-pr .window::before,
+  .art-pr .window::after {
+    content: '';
+    position: absolute;
+    background: #5a3c1e;
+  }
+  .art-pr .window::before {
+    top: 0; bottom: 0; left: 50%;
+    width: 4px; transform: translateX(-50%);
+  }
+  .art-pr .window::after {
+    left: 0; right: 0; top: 50%;
+    height: 4px; transform: translateY(-50%);
+  }
+  /* Pets row */
+  .art-pr .pets {
+    position: absolute;
+    bottom: 48px; left: 0; right: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 14px;
+    font-size: 38px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+  .art-pr .pets .ball { font-size: 24px; margin-bottom: 4px; }
+  .art-pr .pets .bone { font-size: 22px; margin-bottom: 6px; }
+  /* Compact puppy art for short viewport */
+  @media (max-height: 520px) {
+    .art-pr .floor { height: 36px; }
+    .art-pr .window { top: 14px; width: 80px; height: 54px; border-width: 4px; }
+    .art-pr .pets { bottom: 30px; font-size: 28px; gap: 10px; }
+    .art-pr .pets .ball { font-size: 18px; }
+    .art-pr .pets .bone { font-size: 18px; }
+  }
+
   /* ── Coming-soon card art ────────────────────────────── */
   .art-soon {
     background: linear-gradient(135deg, #e8e8e4 0%, #d8d8d0 100%);
@@ -257,7 +321,7 @@
 <main class="grid">
 
   <!-- Hill Jumper -->
-  <a class="card playable" href="./hill-jumper/">
+  <a class="card playable" href="./01-hill-jumper/">
     <div class="card-art art-hj">
       <div class="cloud c1"></div>
       <div class="cloud c2"></div>
@@ -278,17 +342,26 @@
     </div>
   </a>
 
-  <!-- Coming soon 1 -->
-  <div class="card soon">
-    <div class="card-art art-soon">❓</div>
-    <div class="card-body">
-      <div class="card-name" style="color:#aaa">Coming Soon</div>
-      <div class="card-desc">A new adventure is in the works…</div>
-      <span class="card-play-soon">Coming soon</span>
+  <!-- Puppy Room -->
+  <a class="card playable" href="./02-dog-game/">
+    <div class="card-art art-pr">
+      <div class="window"></div>
+      <div class="pets">
+        <span class="bone">🦴</span>
+        <span>🐕</span>
+        <span class="ball">🎾</span>
+        <span>🐶</span>
+      </div>
+      <div class="floor"></div>
     </div>
-  </div>
+    <div class="card-body">
+      <div class="card-name">Puppy Room</div>
+      <div class="card-desc">Wander the cozy room and play with the puppies — joystick to move!</div>
+      <span class="card-play">▶ Play now</span>
+    </div>
+  </a>
 
-  <!-- Coming soon 2 -->
+  <!-- Coming soon -->
   <div class="card soon">
     <div class="card-art art-soon">❓</div>
     <div class="card-body">

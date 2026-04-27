@@ -1,4 +1,4 @@
-const CACHE = 'fun-games-v8';
+const CACHE = 'fun-games-v9';
 
 const PRECACHE = [
   './',
@@ -6,8 +6,8 @@ const PRECACHE = [
   './manifest.json',
   './icons/icon.svg',
   './icons/icon-maskable.svg',
-  './hill-jumper/',
-  './hill-jumper/index.html',
+  './01-hill-jumper/',
+  './01-hill-jumper/index.html',
 ];
 
 self.addEventListener('install', e => {
