@@ -156,8 +156,8 @@
 
   .reset {
     position: absolute;
-    top: calc(env(safe-area-inset-top) + 60px);
-    right: 18px;
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
+    left: 18px;
     pointer-events: auto;
     z-index: 6;
     border: 1px solid rgba(120, 150, 255, 0.18);
@@ -168,7 +168,7 @@
     padding: 8px 14px;
     font: inherit; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
     cursor: pointer;
-    opacity: 0; transform: translateY(-6px);
+    opacity: 0; transform: translateY(6px);
     transition: opacity 0.3s ease, transform 0.3s ease;
   }
   .reset.show { opacity: 1; transform: none; }
@@ -190,7 +190,7 @@
     </div>
     <button class="reset" id="resetBtn">Reset Rocket</button>
     <div class="banner" id="banner"><div class="big"></div><div class="sub"></div></div>
-    <div class="hint" id="hint"><b>Pull back</b> the rocket &amp; release to sling it to the far side</div>
+    <div class="hint" id="hint"><b>Drag anywhere</b> &amp; pull back to sling it to the far side</div>
   </div>
 
   <div class="intro" id="intro">
@@ -298,7 +298,12 @@
     SUN.fieldR = SUN.r + 210 * U;
     SUN.K = GBASE * SUN.mass * U * U * U;
 
-    GOAL_Y = Math.max(50 * U, H * 0.06);
+    // Keep the dotted goal line clear of the top HUD (brand + score chips + the
+    // notch safe-area) so the scores never sit on top of the line you're aiming
+    // for. Measure the topbar's real rendered bottom and drop the line below it.
+    const topbarEl = document.querySelector('.topbar');
+    const hudBottom = topbarEl ? topbarEl.getBoundingClientRect().bottom : 60;
+    GOAL_Y = Math.max(50 * U, H * 0.06, hudBottom + 12 * U);
     PAD.x = W * 0.5;
     PAD.y = H - (54 * U);
 
@@ -1034,35 +1039,48 @@
     if (rocket.state !== 'aiming' || !aim) return;
     const { pts, pull, max } = predict();
     const U = minDim / 400;
-    // slingshot band (pull back) — anchored at the rocket and stretched opposite
-    // the launch direction by the current pull, so it reads as a sling no matter
-    // where on screen the drag started.
-    let bdx = aim.sx - aim.cx, bdy = aim.sy - aim.cy;   // launch direction
-    let bp = Math.hypot(bdx, bdy);
-    const bmax = MAX_PULL * U;
-    if (bp > bmax){ bdx *= bmax/bp; bdy *= bmax/bp; }
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 2; ctx.setLineDash([2,4]);
-    ctx.beginPath(); ctx.moveTo(rocket.x, rocket.y); ctx.lineTo(rocket.x - bdx, rocket.y - bdy); ctx.stroke();
-    ctx.setLineDash([]);
-    // faint marker at the drag anchor so the relative control reads clearly
-    ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    ctx.beginPath(); ctx.arc(aim.sx, aim.sy, 3, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.lineWidth = 1.5; ctx.setLineDash([2,5]);
-    ctx.beginPath(); ctx.moveTo(aim.sx, aim.sy); ctx.lineTo(aim.cx, aim.cy); ctx.stroke();
-    ctx.setLineDash([]);
-    // predicted trajectory dots
     const frac = Math.min(1, pull / max);
+
+    // Predicted trajectory dots — drawn from the rocket's real launch point (the
+    // pad) since that's where the shot physically originates. Kept faint so the
+    // focus stays on the sling under the finger.
     for (let i = 0; i < pts.length; i++){
       const a = 1 - i/pts.length;
       const rad = 1.2 + frac*1.6;
-      ctx.fillStyle = `oklch(0.85 0.16 ${250 - frac*40} / ${0.15 + a*0.5})`;
+      ctx.fillStyle = `oklch(0.85 0.16 ${250 - frac*40} / ${0.12 + a*0.42})`;
       ctx.beginPath(); ctx.arc(pts[i][0], pts[i][1], rad, 0, Math.PI*2); ctx.fill();
     }
-    // power ring on rocket
-    ctx.beginPath(); ctx.arc(rocket.x, rocket.y, 16, -Math.PI/2, -Math.PI/2 + frac*Math.PI*2);
-    ctx.strokeStyle = frac > 0.9 ? 'var(--warn)' : 'rgba(150,190,255,0.9)';
+
+    // The whole slingshot is drawn UNDER THE FINGER, not at the pad dot: the
+    // anchor (sx,sy) is wherever the drag began, the band stretches to the
+    // current touch, and the launch arrow + power ring sit on that anchor — so
+    // the control reads as relative to your finger anywhere on screen.
+    let bdx = aim.sx - aim.cx, bdy = aim.sy - aim.cy;   // launch direction
+    let bp = Math.hypot(bdx, bdy) || 1;
+    const bmax = MAX_PULL * U;
+    if (bp > bmax){ bdx *= bmax/bp; bdy *= bmax/bp; bp = bmax; }
+
+    // stretched rubber band: anchor -> current touch
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2.5; ctx.setLineDash([2,4]);
+    ctx.beginPath(); ctx.moveTo(aim.sx, aim.sy); ctx.lineTo(aim.cx, aim.cy); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // launch-direction arrow from the anchor (opposite the pull)
+    const ex = aim.sx + bdx, ey = aim.sy + bdy;
+    const ah = Math.atan2(bdy, bdx);
+    ctx.strokeStyle = `oklch(0.82 0.16 ${250 - frac*60})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(aim.sx, aim.sy); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(ah - 0.42)*9*U, ey - Math.sin(ah - 0.42)*9*U);
+    ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(ah + 0.42)*9*U, ey - Math.sin(ah + 0.42)*9*U);
+    ctx.stroke();
+
+    // anchor knob + power ring around the finger origin
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.arc(aim.sx, aim.sy, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(aim.sx, aim.sy, 17, -Math.PI/2, -Math.PI/2 + frac*Math.PI*2);
     ctx.strokeStyle = `oklch(0.8 0.16 ${250 - frac*80})`;
     ctx.lineWidth = 3; ctx.stroke();
   }
@@ -1133,7 +1151,7 @@
     if (rocket.state === 'flying') m = rocket.fuel > 0.02 ? 'Tap &amp; hold to <b>thrust</b>' : 'Out of fuel — ride the gravity';
     else if (rocket.state === 'aiming') m = 'Release to launch';
     else if (rocket.state === 'won' || rocket.state === 'dead') m = 'Tap to launch again';
-    else m = '<b>Pull back</b> to sling · <b>tap &amp; hold</b> in flight to thrust';
+    else m = '<b>Drag anywhere</b> &amp; pull back to sling · <b>hold</b> in flight to thrust';
     if (m !== hintMsg){ hintEl.innerHTML = m; hintMsg = m; }
   }
 
