@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#05060f">
+<title>Cosmic Sling</title>
+<style>
+  :root {
+    --ink: #eaf0ff;
+    --muted: rgba(210, 220, 255, 0.55);
+    --accent: oklch(0.78 0.16 250);
+    --good: oklch(0.82 0.16 150);
+    --warn: oklch(0.78 0.18 35);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: #05060f;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+  #stage { position: fixed; inset: 0; }
+  canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+
+  /* HUD */
+  .hud {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    font-variant-numeric: tabular-nums;
+  }
+  .topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(env(safe-area-inset-top) + 14px) 18px 14px;
+    gap: 12px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 9px;
+    font-weight: 700; letter-spacing: 0.12em; font-size: 13px;
+    text-transform: uppercase;
+    color: var(--ink);
+    text-shadow: 0 1px 18px rgba(90,130,255,0.5);
+  }
+  .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 60%, transparent 72%);
+    box-shadow: 0 0 14px 2px var(--accent);
+  }
+  .stats { display: flex; gap: 8px; }
+  .chip {
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 56px;
+    padding: 6px 11px;
+    border-radius: 13px;
+    background: rgba(18, 22, 44, 0.55);
+    border: 1px solid rgba(120, 150, 255, 0.16);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .chip .v { font-weight: 700; font-size: 17px; line-height: 1; }
+  .chip .k { font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+  .chip.good .v { color: var(--good); }
+
+  .hint {
+    position: absolute;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom) + 18px);
+    transform: translateX(-50%);
+    text-align: center;
+    color: var(--muted);
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
+    width: max-content;
+    max-width: 86vw;
+    transition: opacity 0.4s ease;
+  }
+  .hint b { color: var(--ink); font-weight: 600; }
+
+  /* Banner (win / crash) */
+  .banner {
+    position: absolute;
+    left: 50%; top: 38%;
+    transform: translate(-50%, -50%) scale(0.9);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.2,.9,.3,1.4);
+    pointer-events: none;
+  }
+  .banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .banner .big {
+    font-size: clamp(34px, 11vw, 64px);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-shadow: 0 4px 40px rgba(0,0,0,0.6);
+  }
+  .banner .sub { margin: 10px auto 0; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); max-width: 80vw; line-height: 1.5; text-wrap: balance; }
+  .banner.lose .sub { color: oklch(0.82 0.05 40); }
+  .banner.win .big { color: var(--good); text-shadow: 0 0 50px oklch(0.82 0.16 150 / 0.7); }
+  .banner.lose .big { color: var(--warn); text-shadow: 0 0 50px oklch(0.78 0.18 35 / 0.7); }
+
+  /* Intro overlay */
+  .intro {
+    position: absolute; inset: 0;
+    z-index: 20;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 32px;
+    background: radial-gradient(120% 90% at 50% 30%, rgba(20,28,66,0.35), rgba(5,6,15,0.86) 70%);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    transition: opacity 0.5s ease;
+  }
+  .intro h1 {
+    font-size: clamp(38px, 13vw, 76px);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 0.95;
+    background: linear-gradient(180deg, #fff, oklch(0.8 0.15 255));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 4px 30px rgba(90,130,255,0.4));
+  }
+  .intro p { margin-top: 16px; max-width: 340px; color: var(--muted); font-size: 14.5px; line-height: 1.55; }
+  .intro p b { color: var(--ink); font-weight: 600; }
+  .play {
+    margin-top: 30px;
+    pointer-events: auto;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 14px;
+    color: #06122a;
+    padding: 15px 40px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #fff, oklch(0.86 0.13 250));
+    box-shadow: 0 10px 40px -8px oklch(0.78 0.16 250 / 0.8), inset 0 1px 0 #fff;
+    transition: transform 0.12s ease;
+  }
+  .play:active { transform: scale(0.96); }
+  .intro.hide { opacity: 0; pointer-events: none; }
+
+  .reset {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 60px);
+    right: 18px;
+    pointer-events: auto;
+    z-index: 6;
+    border: 1px solid rgba(120, 150, 255, 0.18);
+    background: rgba(18, 22, 44, 0.55);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font: inherit; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0; transform: translateY(-6px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .reset.show { opacity: 1; transform: none; }
+  .reset:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="game"></canvas>
+  </div>
+
+  <div class="hud">
+    <div class="topbar">
+      <div class="brand"><span class="dot"></span> Cosmic Sling</div>
+      <div class="stats">
+        <div class="chip"><span class="v" id="stLaunch">0</span><span class="k">Launches</span></div>
+        <div class="chip good"><span class="v" id="stWin">0</span><span class="k">Orbits Hit</span></div>
+      </div>
+    </div>
+    <button class="reset" id="resetBtn">Reset Rocket</button>
+    <div class="banner" id="banner"><div class="big"></div><div class="sub"></div></div>
+    <div class="hint" id="hint"><b>Pull back</b> the rocket &amp; release to sling it to the far side</div>
+  </div>
+
+  <div class="intro" id="intro">
+    <h1>Cosmic<br>Sling</h1>
+    <p>Sling your rocket from the launch pad to the <b>far side of the system</b>. Every planet and the Sun pull it with real gravity — <b>slingshot</b> around them to curve your shot home. <b>Tap &amp; hold</b> in flight to burn fuel and thrust forward.</p>
+    <button class="play" id="playBtn">Launch Mission</button>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const hintEl = document.getElementById('hint');
+  const bannerEl = document.getElementById('banner');
+  const resetBtn = document.getElementById('resetBtn');
+  const stLaunch = document.getElementById('stLaunch');
+  const stWin = document.getElementById('stWin');
+
+  let W = 0, H = 0, DPR = 1;
+  let minDim = 0;
+
+  // ---- World layout (recomputed on resize) ----
+  const SUN = { x: 0, y: 0, r: 0, mass: 0, spin: 0 };
+  let GOAL_Y = 0;          // top goal band
+  let PAD = { x: 0, y: 0 };// launch pad position
+  let RX = 0, RY = 0;      // orbit-field semi-axes (fill the screen)
+  const planets = [];      // built each resize, but angles persist
+  const stars = [];
+  let bgSprite = null;     // pre-rendered background (gradient + stars + orbits)
+
+  // Persistent orbit angles & spins so resize doesn't jump
+  const planetDefs = [
+    // name, orbitFrac(of maxOrbit), sizeU, orbitSpeed(rad/s), massU, palette
+    { name:'Mercury', frac:0.10, size:2.6,speed: 0.52, mass:430, safe:true, pal:['#b9a48f','#7d6a55','#43382c'] },
+    { name:'Venus',   frac:0.18, size:4,  speed: 0.41, mass:520, safe:true, pal:['#f4dca0','#c79a52','#6e4d21'] },
+    { name:'Earth',   frac:0.26, size:4.5,speed: 0.33, mass:210, pal:['#8fd0ff','#2f7fd6','#173b6e'], earth:true },
+    { name:'Mars',    frac:0.335,size:3.2,speed: 0.28, mass:130, pal:['#e8825a','#b24a2c','#5e2418'] },
+    { name:'Jupiter', frac:0.45, size:8,  speed: 0.18, mass:760, pal:['#e9cda3','#c79a6b','#8a5d3b'], bands:true },
+    { name:'Saturn',  frac:0.56, size:7,  speed: 0.135,mass:560, pal:['#f0dcae','#cdaa6f','#8a6b3f'], ring:'#d8c79a' },
+    { name:'Uranus',  frac:0.66, size:6,  speed: 0.105,mass:360, pal:['#bdeef0','#7fc9d4','#3f7f8c'], ring:'#bfe7ec' },
+    { name:'Neptune', frac:0.76, size:6,  speed: 0.082,mass:380, pal:['#7fa6ff','#3f63d8','#1f2f7a'] },
+  ];
+  // init persistent state
+  planetDefs.forEach((d, i) => {
+    d.angle = Math.random() * Math.PI * 2;
+    d.spin = Math.random() * Math.PI * 2;
+    d.spinSpeed = 0.5 + Math.random() * 0.8;
+    d.ecc = 0.06 + Math.random() * 0.12;        // orbital eccentricity (ellipse)
+    d.tilt = Math.random() * Math.PI;           // orientation of the ellipse
+  });
+  // rank the safe (inner) planets: lower rank stays safe longest
+  let _sr = 0;
+  planetDefs.forEach((d) => { if (d.safe) d.safeRank = _sr++; });
+
+  // ---- Rocket ----
+  const rocket = {
+    x: 0, y: 0, vx: 0, vy: 0, angle: -Math.PI/2,
+    r: 6,
+    state: 'idle',    // idle | aiming | flying | dead | won
+    flightT: 0,
+    fuel: 1,          // thrust budget, refilled each launch
+    cap: null,        // active slingshot capture {p,R,ang,dir,swept,vEntry}
+    capCD: null,      // cooldown so we don't re-grab the same planet instantly
+    trail: [],
+  };
+
+  // ---- Tuning ----
+  let GBASE = 480;         // gravity strength (empirically tuned for loops)
+  let POWER = 0.92;        // pull distance -> launch speed (low => slow => loopy)
+  const MAX_PULL = 175;    // px at U=1 baseline
+  const MIN_PULL = 14;
+  const SUBSTEPS = 8;
+  const MAX_FLIGHT = 13;   // seconds before the rocket runs out of fuel
+  const SQUASH = 0.82;     // vertical squash of orbits (perspective)
+  const SAFE_WRAP = 300 * Math.PI / 180; // inner planets fling you ~300° around
+  const SAFE_BOOST = 1.5;  // slingshot speed gain on release
+  const THRUST_ACC = 240;  // forward thrust accel (× U) when burning fuel
+  const THRUST_GRAV = 5.0; // gravity multiplier while burning fuel
+  const TANK = 0.9;        // seconds of continuous thrust per launch
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    minDim = Math.min(W, H);
+
+    buildWorld();
+    if (rocket.state === 'idle' || rocket.state === 'dead' || rocket.state === 'won') resetRocket(false);
+  }
+
+  function buildWorld() {
+    const U = minDim / 400;             // scale unit
+    SUN.x = W * 0.5;
+    SUN.y = H * 0.5;                    // sun centered
+    SUN.r = 24 * U;
+    SUN.mass = 3200;
+    SUN.soft = SUN.r * 0.85;
+    SUN.fieldR = SUN.r + 210 * U;
+    SUN.K = GBASE * SUN.mass * U * U * U;
+
+    GOAL_Y = Math.max(50 * U, H * 0.06);
+    PAD.x = W * 0.5;
+    PAD.y = H - (54 * U);
+
+    // The orbit field stretches to FILL the screen: full width on X, and the
+    // full height (minus a launch lane at the bottom and goal lane at the top)
+    // on Y. Decoupling the axes means it fills any aspect ratio, not just a
+    // circle sized to the smaller dimension.
+    RX = W * 0.5 - 14 * U;
+    RY = Math.min(SUN.y - GOAL_Y - 16 * U, PAD.y - SUN.y - 26 * U);
+    const innerF = 0.27;                  // inner planets stay clear of the Sun
+
+    planets.length = 0;
+    planetDefs.forEach((d) => {
+      const nf = innerF + (d.frac / 0.76) * (1 - innerF);   // 0..1 orbit fraction
+      const r = d.size * U;
+      // safe (inner) planets: the "atmosphere" green glow doubles as the catch
+      // zone for the scripted slingshot; they exert no passive gravity pull.
+      const fieldR = d.safe
+        ? r + 17 * U
+        : r * 1.7 + Math.min(135 * U, Math.sqrt(d.mass) * 6.4 * U);
+      planets.push({
+        def: d,
+        nf,
+        r,
+        mass: d.mass,
+        x: 0, y: 0,
+        soft: r * 0.8,
+        fieldR,
+        wellR: fieldR,
+        K: GBASE * d.mass * U * U * U,
+      });
+    });
+
+    buildStars();
+    buildSprites();
+  }
+
+  // ---- Sprite pre-rendering (perf: build once, drawImage each frame) ----
+  function makeSprite(cssW, cssH) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.ceil(cssW * DPR));
+    c.height = Math.max(1, Math.ceil(cssH * DPR));
+    const g = c.getContext('2d');
+    g.scale(DPR, DPR);
+    return { c, g, w: cssW, h: cssH };
+  }
+
+  function buildSprites() {
+    // Background: space gradient + stars + faint orbit rings, baked once.
+    const bg = makeSprite(W, H);
+    const g = bg.g;
+    const rg = g.createRadialGradient(SUN.x, SUN.y, 0, SUN.x, SUN.y, Math.max(W, H) * 0.9);
+    rg.addColorStop(0, '#101a3e'); rg.addColorStop(0.4, '#0a0f28'); rg.addColorStop(1, '#04050d');
+    g.fillStyle = rg; g.fillRect(0, 0, W, H);
+    for (const s of stars) {
+      g.globalAlpha = 0.25 + s.z * 0.6;
+      g.fillStyle = s.z > 0.85 ? '#bcd4ff' : '#ffffff';
+      const r = s.z * 1.4 + 0.3;
+      g.fillRect(s.x, s.y, r, r);
+    }
+    g.globalAlpha = 1;
+    g.strokeStyle = 'rgba(140,170,255,0.10)'; g.lineWidth = 1;
+    for (const p of planets) {
+      const a = p.nf, b = p.nf * (1 - p.def.ecc), cp = Math.cos(p.def.tilt), sp = Math.sin(p.def.tilt);
+      g.beginPath();
+      for (let k = 0; k <= 72; k++) {
+        const th = k / 72 * Math.PI * 2, ex = a * Math.cos(th), ey = b * Math.sin(th);
+        const rx = ex * cp - ey * sp, ry = ex * sp + ey * cp;
+        const X = SUN.x + rx * RX, Y = SUN.y + ry * RY;
+        if (k) g.lineTo(X, Y); else g.moveTo(X, Y);
+      }
+      g.stroke();
+    }
+    bgSprite = bg;
+
+    // Sun sprite (corona + body), drawn at flick=1; scaled per-frame for flicker.
+    const sr = SUN.r, box = sr * 3.4 * 2;
+    const sun = makeSprite(box, box); const sg = sun.g; const c = box / 2;
+    const glow = sg.createRadialGradient(c, c, sr * 0.4, c, c, sr * 3.4);
+    glow.addColorStop(0, 'rgba(255,180,60,0.55)'); glow.addColorStop(0.4, 'rgba(255,120,30,0.18)'); glow.addColorStop(1, 'rgba(255,120,30,0)');
+    sg.fillStyle = glow; sg.beginPath(); sg.arc(c, c, sr * 3.4, 0, Math.PI * 2); sg.fill();
+    const body = sg.createRadialGradient(c - sr * 0.2, c - sr * 0.2, sr * 0.1, c, c, sr);
+    body.addColorStop(0, '#fff6d6'); body.addColorStop(0.45, '#ffd24d'); body.addColorStop(0.8, '#ff8a1f'); body.addColorStop(1, '#e0470d');
+    sg.fillStyle = body; sg.beginPath(); sg.arc(c, c, sr, 0, Math.PI * 2); sg.fill();
+    SUN.sprite = sun; SUN.spriteBox = box;
+
+    // Planet sprites: static base (well + sphere + bands + shadow + rim + ring)
+    // and a separate surface layer that we rotate each frame for spin.
+    for (const p of planets) buildPlanetSprite(p);
+  }
+
+  function buildPlanetSprite(p) {
+    const d = p.def, r = p.r, fr = p.wellR;
+    // --- base ---
+    const box = fr * 2, cx = fr;
+    const base = makeSprite(box, box); const g = base.g;
+    const well = g.createRadialGradient(cx, cx, r * 0.9, cx, cx, fr);
+    if (d.safe) {
+      well.addColorStop(0, 'rgba(110,240,180,0.18)'); well.addColorStop(0.55, 'rgba(95,225,170,0.06)'); well.addColorStop(1, 'rgba(95,225,170,0)');
+    } else {
+      well.addColorStop(0, 'rgba(150,180,255,0.10)'); well.addColorStop(0.6, 'rgba(120,150,255,0.04)'); well.addColorStop(1, 'rgba(120,150,255,0)');
+    }
+    g.fillStyle = well; g.beginPath(); g.arc(cx, cx, fr, 0, Math.PI * 2); g.fill();
+    g.save();
+    g.beginPath(); g.arc(cx, cx, r, 0, Math.PI * 2); g.clip();
+    const lx = cx - r * 0.35, ly = cx - r * 0.35;
+    const grad = g.createRadialGradient(lx, ly, r * 0.1, cx, cx, r * 1.25);
+    grad.addColorStop(0, d.pal[0]); grad.addColorStop(0.55, d.pal[1]); grad.addColorStop(1, d.pal[2]);
+    g.fillStyle = grad; g.fillRect(cx - r, cx - r, r * 2, r * 2);
+    if (d.bands) {
+      g.globalAlpha = 0.22;
+      for (let i = -3; i <= 3; i++) { g.fillStyle = i % 2 ? d.pal[2] : d.pal[0]; g.fillRect(cx - r, cx + i * r * 0.32, r * 2, r * 0.16); }
+      g.globalAlpha = 1;
+    }
+    // fixed terminator shadow (light from upper-left)
+    const sh = g.createRadialGradient(cx - r * 0.3, cx - r * 0.3, r * 0.2, cx + r * 0.5, cx + r * 0.5, r * 1.5);
+    sh.addColorStop(0, 'rgba(0,0,8,0)'); sh.addColorStop(1, 'rgba(0,0,10,0.6)');
+    g.fillStyle = sh; g.fillRect(cx - r, cx - r, r * 2, r * 2);
+    g.restore();
+    g.beginPath(); g.arc(cx, cx, r, 0, Math.PI * 2); g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1; g.stroke();
+    if (d.ring) {
+      g.save(); g.translate(cx, cx); g.rotate(-0.5); g.scale(1, 0.34);
+      g.beginPath(); g.arc(0, 0, r * 1.9, 0, Math.PI * 2); g.lineWidth = r * 0.5; g.strokeStyle = d.ring + 'cc'; g.stroke();
+      g.beginPath(); g.arc(0, 0, r * 2.3, 0, Math.PI * 2); g.lineWidth = r * 0.18; g.strokeStyle = d.ring + '66'; g.stroke();
+      g.restore();
+    }
+    p.base = base;
+
+    // --- surface (rotated each frame) ---
+    const sbox = r * 2, sc = r;
+    const surf = makeSprite(sbox, sbox); const sg = surf.g;
+    sg.save(); sg.beginPath(); sg.arc(sc, sc, r * 0.98, 0, Math.PI * 2); sg.clip();
+    const eblob = (bx, by, rx, ry) => { sg.beginPath(); sg.ellipse(bx, by, rx, ry, 0, 0, Math.PI * 2); sg.fill(); };
+    if (d.earth) {
+      sg.globalAlpha = 0.8; sg.fillStyle = '#2f9e54';
+      eblob(sc + r * 0.3, sc - r * 0.15, r * 0.5, r * 0.4);
+      eblob(sc - r * 0.35, sc + r * 0.3, r * 0.45, r * 0.5);
+      eblob(sc + r * 0.1, sc + r * 0.05, r * 0.3, r * 0.5);
+    } else if (d.bands) {
+      sg.globalAlpha = 0.5; sg.fillStyle = '#9c5a3c';
+      eblob(sc + r * 0.35, sc + r * 0.3, r * 0.28, r * 0.18); // storm spot
+    } else {
+      sg.globalAlpha = 0.28; sg.fillStyle = d.pal[2];
+      eblob(sc + r * 0.35, sc - r * 0.2, r * 0.4, r * 0.3);
+      eblob(sc - r * 0.3, sc + r * 0.25, r * 0.5, r * 0.35);
+    }
+    sg.restore();
+    p.surf = surf;
+  }
+
+  function buildStars() {
+    stars.length = 0;
+    const n = Math.round((W * H) / 5200);
+    for (let i = 0; i < n; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        z: Math.random(),
+        tw: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function safeBottom() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--sab');
+    return 0;
+  }
+
+  function updatePlanetPositions(dt) {
+    for (const p of planets) {
+      const d = p.def;
+      const a = p.nf, b = p.nf * (1 - d.ecc);
+      if (dt) {
+        // Kepler-ish: sweep faster when nearer the Sun (tighter part of orbit)
+        const ct0 = Math.cos(d.angle), st0 = Math.sin(d.angle);
+        const rr = Math.hypot(a * ct0, b * st0) || a;
+        d.angle += d.speed * (a * a) / (rr * rr) * dt;
+        d.spin += d.spinSpeed * dt;
+      }
+      const ct = Math.cos(d.angle), st = Math.sin(d.angle);
+      const ex = a * ct, ey = b * st;                 // unit ellipse point
+      const cp = Math.cos(d.tilt), sp = Math.sin(d.tilt);
+      const rx = ex * cp - ey * sp, ry = ex * sp + ey * cp;
+      p.x = SUN.x + rx * RX;                            // stretch to fill screen
+      p.y = SUN.y + ry * RY;
+    }
+  }
+
+  function resetRocket(countLaunchDone) {
+    rocket.x = PAD.x; rocket.y = PAD.y;
+    rocket.vx = 0; rocket.vy = 0;
+    rocket.angle = -Math.PI / 2;
+    rocket.state = 'idle';
+    rocket.cap = null;
+    rocket.capCD = null;
+    rocket.trail.length = 0;
+    resetBtn.classList.remove('show');
+  }
+
+  // ---- Gravity ----
+  // Localized wells: strong near a body, smoothly tapering to zero at its
+  // field radius. Beyond the field a body exerts no pull, so cruising between
+  // planets is calm and slingshots happen where the visible wells are.
+  function pull(b, x, y, out) {
+    const dx = b.x - x, dy = b.y - y;
+    const d2 = dx*dx + dy*dy;
+    const fr = b.fieldR;
+    if (d2 > fr*fr) return;
+    const d = Math.sqrt(d2) || 0.0001;
+    const mag = b.K / (d2 + b.soft*b.soft);   // px/s^2 (Newtonian, softened)
+    const taper = 1 - d / fr;                  // -> 0 at field edge
+    const a = mag * taper * taper / d;         // divide by d to normalize dir
+    out[0] += dx * a; out[1] += dy * a;
+  }
+  const _acc = [0, 0];
+  function accel(x, y) {
+    _acc[0] = 0; _acc[1] = 0;
+    pull(SUN, x, y, _acc);
+    for (const p of planets) { if (p.def.safe) continue; pull(p, x, y, _acc); }
+    return _acc;
+  }
+
+  // Is an inner "safe" planet currently disarmed? Each danger condition strips
+  // one planet's immunity: burning fuel disarms one, crossing past the Sun
+  // (top half of the page) disarms one. Lower safeRank keeps immunity longest.
+  function planetIsSafe(p){
+    if (!p.def.safe) return false;
+    const burning = thrusting && rocket.fuel > 0;
+    const passedSun = rocket.y < SUN.y;
+    let numSafe = 2 - (burning ? 1 : 0) - (passedSun ? 1 : 0);
+    if (numSafe < 0) numSafe = 0;
+    return p.def.safeRank < numSafe;
+  }
+
+  // collision test against bodies; returns body hit or null. Inner planets are
+  // pass-through slingshot bumpers only while currently "safe" (see above).
+  function collide(x, y) {
+    if (dist2(x, y, SUN.x, SUN.y) < (SUN.r + rocket.r) ** 2) return SUN;
+    for (const p of planets) {
+      if (planetIsSafe(p)) continue;
+      if (dist2(x, y, p.x, p.y) < (p.r + rocket.r) ** 2) return p;
+    }
+    return null;
+  }
+  function dist2(ax, ay, bx, by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
+
+  // ---- Input (slingshot + thrust) ----
+  let aim = null; // {sx,sy,cx,cy}
+  let thrusting = false;
+  function pointFromEvent(e){
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX, y: t.clientY };
+  }
+
+  function onDown(e){
+    if (introVisible) return;
+    if (rocket.state === 'flying'){ if (!rocket.cap) thrusting = true; e.preventDefault(); return; }
+    if (rocket.state === 'dead' || rocket.state === 'won') { resetRocket(); hideBanner(); }
+    if (rocket.state !== 'idle') return;
+    const p = pointFromEvent(e);
+    aim = { cx: p.x, cy: p.y };
+    rocket.state = 'aiming';
+    e.preventDefault();
+  }
+  function onMove(e){
+    if (rocket.state !== 'aiming' || !aim) return;
+    const p = pointFromEvent(e);
+    aim.cx = p.x; aim.cy = p.y;
+    e.preventDefault();
+  }
+  function onUp(e){
+    thrusting = false;
+    if (rocket.state !== 'aiming' || !aim) return;
+    const U = minDim / 400;
+    // launch vector = from current touch back toward rocket (pull-back)
+    let dx = rocket.x - aim.cx;
+    let dy = rocket.y - aim.cy;
+    let pull = Math.hypot(dx, dy);
+    const maxPull = MAX_PULL * U;
+    if (pull > maxPull){ dx *= maxPull/pull; dy *= maxPull/pull; pull = maxPull; }
+    if (pull < MIN_PULL * U){
+      rocket.state = 'idle'; aim = null; e.preventDefault(); return;
+    }
+    const speed = pull * POWER;
+    const inv = 1 / pull;
+    rocket.vx = dx * inv * speed;
+    rocket.vy = dy * inv * speed;
+    rocket.angle = Math.atan2(rocket.vy, rocket.vx);
+    rocket.state = 'flying';
+    rocket.flightT = 0;
+    rocket.fuel = 1;
+    rocket.cap = null;
+    rocket.capCD = null;
+    rocket.trail.length = 0;
+    aim = null;
+    launches++; stLaunch.textContent = launches;
+    resetBtn.classList.add('show');
+    e.preventDefault();
+  }
+
+  // ---- Trajectory preview ----
+  function predict(){
+    const U = minDim / 400;
+    let dx = rocket.x - aim.cx, dy = rocket.y - aim.cy;
+    let pull = Math.hypot(dx, dy);
+    const maxPull = MAX_PULL * U;
+    if (pull > maxPull){ dx *= maxPull/pull; dy *= maxPull/pull; pull = maxPull; }
+    if (pull < 1) return { pts: [], pull: 0, max: maxPull };
+    const speed = pull * POWER;
+    let x = rocket.x, y = rocket.y;
+    let vx = dx / pull * speed, vy = dy / pull * speed;
+    const pts = [];
+    const h = 1/120;
+    for (let i = 0; i < 240; i++){
+      for (let s = 0; s < 3; s++){
+        const [ax, ay] = accel(x, y);
+        vx += ax * h; vy += ay * h;
+        x += vx * h; y += vy * h;
+      }
+      if (i % 2 === 0) pts.push([x, y]);
+      if (collide(x, y) || x < -40 || x > W+40 || y > H+40) break;
+      if (y < GOAL_Y) break;
+    }
+    return { pts, pull, max: maxPull };
+  }
+
+  // ---- Physics step ----
+  function step(dt){
+    if (rocket.state !== 'flying') return;
+    rocket.flightT += dt;
+    if (rocket.flightT > MAX_FLIGHT){ lose('Stranded in deep space'); return; }
+    const h = dt / SUBSTEPS;
+    const U = minDim / 400;
+    for (let s = 0; s < SUBSTEPS; s++){
+      if (rocket.cap){
+        if (!substepCapture(h)) return;        // win can trigger mid-whip
+      } else {
+        const [ax, ay] = accel(rocket.x, rocket.y);
+        let tx = 0, ty = 0, gmul = 1;
+        if (thrusting && rocket.fuel > 0){
+          gmul = THRUST_GRAV;               // burning fuel deepens every gravity well
+          const sp = Math.hypot(rocket.vx, rocket.vy) || 1;
+          const TA = THRUST_ACC * U;
+          tx = rocket.vx / sp * TA; ty = rocket.vy / sp * TA;
+          rocket.fuel -= h / TANK;
+          if (rocket.fuel < 0) rocket.fuel = 0;
+        }
+        rocket.vx += (ax * gmul + tx) * h; rocket.vy += (ay * gmul + ty) * h;
+        rocket.x += rocket.vx * h; rocket.y += rocket.vy * h;
+        const grab = safeCatch();
+        if (grab){ beginCapture(grab, U); }
+        else {
+          const hit = collide(rocket.x, rocket.y);
+          if (hit){ explode(rocket.x, rocket.y, hit === SUN); spawnJunk(rocket.x, rocket.y, rocket.vx, rocket.vy, hit); lose(crashMsg(hit)); return; }
+          if (junkHitRocket()){ explode(rocket.x, rocket.y, false); spawnJunk(rocket.x, rocket.y, rocket.vx, rocket.vy, null); lose('Wrecked by orbiting debris'); return; }
+        }
+        if (rocket.y < GOAL_Y){ win(); return; }
+        if (rocket.x < -60 || rocket.x > W + 60 || rocket.y > H + 80){ lose('Lost in space'); return; }
+      }
+    }
+    if (!rocket.cap) rocket.angle = Math.atan2(rocket.vy, rocket.vx);
+    rocket.trail.push([rocket.x, rocket.y]);
+    if (rocket.trail.length > 90) rocket.trail.shift();
+  }
+
+  // Slingshot capture: inner "safe" planets grab the rocket the moment it enters
+  // their atmosphere and whip it ~300° around with a speed boost, then release.
+  function safeCatch(){
+    for (const p of planets){
+      if (!planetIsSafe(p)) continue;
+      if (rocket.capCD && rocket.capCD.p === p && rocket.flightT < rocket.capCD.until) continue;
+      const dx = rocket.x - p.x, dy = rocket.y - p.y;
+      if (dx*dx + dy*dy < p.fieldR * p.fieldR) return p;
+    }
+    return null;
+  }
+  function beginCapture(p, U){
+    const dx = rocket.x - p.x, dy = rocket.y - p.y;
+    let R = Math.hypot(dx, dy);
+    R = Math.max(p.r + 7*U, Math.min(R, p.r + 14*U));   // tight whip radius
+    const vE = Math.hypot(rocket.vx, rocket.vy) || 60*U;
+    const cross = dx*rocket.vy - dy*rocket.vx;           // orbit the way we're going
+    rocket.cap = { p, R, ang: Math.atan2(dy, dx), dir: cross >= 0 ? 1 : -1, swept: 0, vEntry: vE };
+  }
+  function substepCapture(h){
+    const c = rocket.cap, p = c.p;
+    const prog = c.swept / SAFE_WRAP;
+    const speed = c.vEntry * (1 + (SAFE_BOOST - 1) * prog);   // ramp the boost in
+    const omega = speed / c.R;
+    c.ang += c.dir * omega * h;
+    c.swept += omega * h;
+    rocket.x = p.x + Math.cos(c.ang) * c.R;
+    rocket.y = p.y + Math.sin(c.ang) * c.R;
+    const tang = c.ang + c.dir * Math.PI/2;
+    rocket.vx = Math.cos(tang) * speed; rocket.vy = Math.sin(tang) * speed;
+    rocket.angle = tang;
+    if (c.swept >= SAFE_WRAP){
+      const mx = 560 * (minDim/400);
+      let sp = Math.min(c.vEntry * SAFE_BOOST, mx);
+      rocket.vx = Math.cos(tang) * sp; rocket.vy = Math.sin(tang) * sp;
+      rocket.capCD = { p, until: rocket.flightT + 0.5 };
+      rocket.cap = null;
+      sparkle(rocket.x, rocket.y);
+    }
+    if (rocket.y < GOAL_Y){ win(); return false; }
+    return true;
+  }
+
+  // ---- Particles ----
+  const particles = [];
+  function explode(x, y, sun){
+    const n = 26;
+    for (let i = 0; i < n; i++){
+      const a = Math.random() * Math.PI * 2;
+      const sp = 40 + Math.random() * 180;
+      particles.push({
+        x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+        life: 1, max: 0.5 + Math.random()*0.6,
+        col: sun ? `hsl(${28 + Math.random()*22}, 100%, ${55+Math.random()*15}%)`
+                 : `hsl(${15 + Math.random()*30}, 90%, ${55+Math.random()*15}%)`,
+        r: 1.5 + Math.random()*2.5,
+      });
+    }
+  }
+  function updateParticles(dt){
+    for (let i = particles.length-1; i>=0; i--){
+      const p = particles[i];
+      p.life -= dt / p.max;
+      if (p.life <= 0){ particles.splice(i,1); continue; }
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      p.vx *= 0.96; p.vy *= 0.96;
+    }
+  }
+  function poof(x, y, col){
+    for (let i = 0; i < 8; i++){
+      const a = Math.random()*Math.PI*2, sp = 30 + Math.random()*90;
+      particles.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, life:1, max: 0.3+Math.random()*0.3, col, r: 1+Math.random()*1.8 });
+    }
+  }
+
+  // ---- Space junk ----
+  // Crashes shed 3 fragments that settle into their own (mostly Sun-driven)
+  // orbit, swept up when a planet runs into them, and lethal to the rocket.
+  const junk = [];
+  const MAX_JUNK = 27;
+  const JUNK_IMMUNE = 20;   // seconds before debris can be swept up by contact
+  const JUNK_LIFE = 30;     // seconds before debris shrinks away entirely
+
+  // Junk gravity: a GLOBAL Sun pull (no localized cutoff, unlike the rocket's
+  // playfield wells) so debris orbits the whole system, plus a weak planet
+  // perturbation. Softened so motion never spikes/jerks.
+  const _jacc = [0, 0];
+  function junkAccel(x, y){
+    let ax = 0, ay = 0;
+    { const dx = SUN.x - x, dy = SUN.y - y; const d2 = dx*dx + dy*dy + SUN.soft*SUN.soft;
+      const inv = SUN.K / (d2 * Math.sqrt(d2)); ax += dx*inv; ay += dy*inv; }
+    for (const p of planets){
+      const dx = p.x - x, dy = p.y - y; const d2 = dx*dx + dy*dy;
+      const range = p.fieldR * 1.5;
+      if (d2 > range*range) continue;
+      const s2 = d2 + p.soft*p.soft*3.0;
+      const inv = (p.K * 0.34) / (s2 * Math.sqrt(s2));
+      ax += dx*inv; ay += dy*inv;
+    }
+    _jacc[0] = ax; _jacc[1] = ay; return _jacc;
+  }
+
+  function spawnJunk(cx, cy, vx, vy, fromBody){
+    const U = minDim / 400;
+    const dxs = cx - SUN.x, dys = cy - SUN.y;
+    const d = Math.hypot(dxs, dys) || 1;
+    // tangential direction, sign matching the crash's rotational sense
+    let tx = -dys / d, ty = dxs / d;
+    if (vx*tx + vy*ty < 0){ tx = -tx; ty = -ty; }
+    const tang = Math.atan2(ty, tx);
+    const accMag = SUN.K * d / Math.pow(d*d + SUN.soft*SUN.soft, 1.5);
+    const vcirc = Math.sqrt(accMag * d);          // local circular-orbit speed
+    // spawn just outside the body that was hit, so it isn't instantly swept up
+    let ox = cx, oy = cy;
+    if (fromBody){ const bdx = cx-fromBody.x, bdy = cy-fromBody.y, bd = Math.hypot(bdx,bdy)||1;
+      ox = fromBody.x + bdx/bd*(fromBody.r + 7*U); oy = fromBody.y + bdy/bd*(fromBody.r + 7*U); }
+    while (junk.length > MAX_JUNK - 3) junk.shift();
+    for (let i = 0; i < 3; i++){
+      const ang = tang + (i-1)*0.34 + (Math.random()-0.5)*0.22;
+      const sp = vcirc * (0.82 + Math.random()*0.3);
+      junk.push({
+        x: ox + (Math.random()-0.5)*9*U, y: oy + (Math.random()-0.5)*9*U,
+        vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp,
+        r: (2.2 + Math.random()*1.7) * U,
+        spin: Math.random()*6.28, spinSpeed: (Math.random()-0.5)*4.5,
+        age: 0, scale: 1, shape: Math.floor(Math.random()*3),
+      });
+    }
+  }
+
+  function updateJunk(dt){
+    const h = dt / 3;
+    for (let i = junk.length-1; i >= 0; i--){
+      const j = junk[i];
+      j.age += dt;
+      j.scale = Math.max(0, 1 - j.age / JUNK_LIFE);   // shrink over its lifetime
+      for (let s = 0; s < 3; s++){
+        const a = junkAccel(j.x, j.y);
+        j.vx += a[0]*h; j.vy += a[1]*h;
+        j.x += j.vx*h; j.y += j.vy*h;
+      }
+      j.spin += j.spinSpeed * dt;
+      let gone = j.age >= JUNK_LIFE;                  // fully aged out
+      const cr = j.r * j.scale;
+      if (!gone && j.age > JUNK_IMMUNE){
+        if (dist2(j.x, j.y, SUN.x, SUN.y) < (SUN.r + cr)**2){ poof(j.x, j.y, '#ffb15a'); gone = true; }
+        else for (const p of planets){ if (dist2(j.x, j.y, p.x, p.y) < (p.r + cr)**2){ poof(j.x, j.y, '#9fb4d8'); gone = true; break; } }
+      }
+      if (!gone && (j.x < -220 || j.x > W+220 || j.y < -220 || j.y > H+220)) gone = true;
+      if (gone) junk.splice(i, 1);
+    }
+  }
+
+  function junkHitRocket(){
+    for (let i = junk.length-1; i >= 0; i--){
+      const j = junk[i];
+      const cr = j.r * (j.scale ?? 1);
+      if (dist2(rocket.x, rocket.y, j.x, j.y) < (cr + rocket.r)**2){ junk.splice(i, 1); return true; }
+    }
+    return false;
+  }
+
+  function drawJunk(){
+    for (const j of junk){
+      ctx.save();
+      ctx.translate(j.x, j.y); ctx.rotate(j.spin);
+      const r = j.r * (j.scale ?? 1);
+      ctx.beginPath();
+      if (j.shape === 0){ ctx.moveTo(-r,-r*0.6); ctx.lineTo(r*0.8,-r); ctx.lineTo(r,r*0.7); ctx.lineTo(-r*0.6,r); }
+      else if (j.shape === 1){ ctx.moveTo(0,-r); ctx.lineTo(r,r*0.3); ctx.lineTo(r*0.2,r); ctx.lineTo(-r,r*0.2); }
+      else { ctx.moveTo(-r,-r*0.3); ctx.lineTo(r*0.5,-r); ctx.lineTo(r,r*0.5); ctx.lineTo(0,r); ctx.lineTo(-r*0.8,r*0.4); }
+      ctx.closePath();
+      ctx.fillStyle = '#9aa6bd'; ctx.fill();
+      ctx.lineWidth = 0.6; ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // ---- Win / lose ----
+  let launches = +(localStorage.getItem('cs_launch')||0);
+  let wins = +(localStorage.getItem('cs_win')||0);
+  stLaunch.textContent = launches; stWin.textContent = wins;
+
+  function win(){
+    rocket.state = 'won';
+    wins++; stWin.textContent = wins;
+    localStorage.setItem('cs_win', wins);
+    localStorage.setItem('cs_launch', launches);
+    showBanner('win', 'Orbit Reached', 'Tap to launch again');
+    confetti();
+  }
+  // Crash sites: a legit-sounding but goofy place name per body. Earth pulls
+  // from real frum (Orthodox Jewish) communities.
+  const CRASH_SITES = {
+    Sun:    ['Sunnyside (permanently)', 'Toasty Acres', 'Cinder Flats', 'Coronaville', 'Crispy Creek', 'Mount Fryer', 'Welldone Heights'],
+    Earth:  ['Borough Park', 'Williamsburg', 'Lakewood', 'Monsey', 'Kiryas Joel', 'Crown Heights', 'Coral Springs, FL', 'the Five Towns', 'Teaneck', 'Baltimore', 'Flatbush', 'Far Rockaway'],
+    Mars:   ['Rusty Gulch', 'Red Rock Bottom', "Rover's Rest", 'Dustbowl Heights', 'Olympus Mons Food Court', 'Crater Springs'],
+    Jupiter:['the Great Red Spot Rest Stop', 'Stormy Bottoms', 'Gasworth', 'Bandsburg', 'Swirl City', 'Lower Cloudington'],
+    Saturn: ['Ring Road', 'Hoopston', 'Cassini Crossing', 'Tiltbury Downs', 'Halo Heights', 'Looptown'],
+    Uranus: ['Tilton-on-Ice', 'Methane Meadows', 'Sideways Springs', 'Chillingsworth', 'Frostbottom', 'Lean City'],
+    Neptune:['Windy Bluffs', 'Trident Bay', 'Bluemont', 'Gale Harbor', 'Frostgate', 'Far Deepington'],
+    Mercury:['Sunbaked Flats', 'Quicksilver Springs'],
+    Venus:  ['Cloud Nine Estates', 'Acid Acres'],
+  };
+  function crashMsg(body){
+    const isSun = body === SUN;
+    const name = isSun ? 'the Sun' : body.def.name;
+    const list = CRASH_SITES[isSun ? 'Sun' : body.def.name] || ['parts unknown'];
+    const place = list[Math.floor(Math.random() * list.length)];
+    return `Crash-landed in ${place}, ${name}`;
+  }
+
+  function lose(reason){
+    rocket.state = 'dead';
+    localStorage.setItem('cs_launch', launches);
+    showBanner('lose', 'Mission Lost', reason);
+  }
+  function showBanner(type, big, sub){
+    bannerEl.className = 'banner ' + type + ' show';
+    bannerEl.querySelector('.big').textContent = big;
+    bannerEl.querySelector('.sub').textContent = sub;
+  }
+  function hideBanner(){ bannerEl.classList.remove('show'); }
+
+  function sparkle(x, y){
+    for (let i = 0; i < 16; i++){
+      const a = Math.random()*Math.PI*2;
+      const sp = 50 + Math.random()*160;
+      particles.push({
+        x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+        life:1, max: 0.35 + Math.random()*0.4,
+        col: `hsl(${150 + Math.random()*35}, 90%, ${62+Math.random()*15}%)`, r: 1+Math.random()*1.8,
+      });
+    }
+  }
+
+  function confetti(){
+    for (let i = 0; i < 40; i++){
+      const a = -Math.PI/2 + (Math.random()-0.5)*1.2;
+      const sp = 120 + Math.random()*260;
+      particles.push({
+        x: rocket.x, y: rocket.y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+        life:1, max: 0.8 + Math.random()*0.8,
+        col: `hsl(${130 + Math.random()*60}, 90%, 60%)`, r: 1.5+Math.random()*2,
+      });
+    }
+  }
+
+  // ---- Render ----
+  function drawBackground(t){
+    if (bgSprite) ctx.drawImage(bgSprite.c, 0, 0, W, H);
+  }
+
+  function drawOrbits(){ /* baked into background sprite */ }
+
+  function drawGoal(t){
+    const h = GOAL_Y;
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'oklch(0.82 0.16 150 / 0.30)');
+    g.addColorStop(1, 'oklch(0.82 0.16 150 / 0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, h);
+    // pulsing line
+    const pulse = 0.5 + 0.5*Math.sin(t*2);
+    ctx.strokeStyle = `oklch(0.85 0.17 150 / ${0.35 + pulse*0.4})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 8]);
+    ctx.lineDashOffset = -t*22;
+    ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(W, h); ctx.stroke();
+    ctx.setLineDash([]);
+    // label
+    ctx.fillStyle = 'oklch(0.88 0.12 150 / 0.85)';
+    ctx.font = `700 ${Math.max(10, minDim/40)}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('◇  FAR SIDE — REACH IT  ◇', W/2, h/2);
+  }
+
+  function drawSun(t){
+    const flick = 1 + 0.045*Math.sin(t*7) + 0.03*Math.sin(t*13);
+    const b = SUN.spriteBox * flick;
+    ctx.drawImage(SUN.sprite.c, SUN.x - b/2, SUN.y - b/2, b, b);
+  }
+
+  function drawPlanet(p, t){
+    const { x, y, r } = p;
+    const d = p.def;
+    ctx.drawImage(p.base.c, x - p.wellR, y - p.wellR, p.wellR*2, p.wellR*2);
+    // rotating surface = spin
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(d.spin);
+    ctx.drawImage(p.surf.c, -r, -r, r*2, r*2);
+    ctx.restore();
+    // label
+    ctx.fillStyle = 'rgba(220,230,255,0.6)';
+    ctx.font = `600 ${Math.max(9, r*0.55)}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(d.name, x, y + r + 4);
+  }
+
+  function drawPad(t){
+    const x = PAD.x, y = PAD.y;
+    ctx.save();
+    // glow ring
+    const pulse = 0.5 + 0.5*Math.sin(t*2.4);
+    ctx.beginPath(); ctx.arc(x, y, 22 + pulse*4, 0, Math.PI*2);
+    ctx.strokeStyle = `oklch(0.78 0.16 250 / ${0.2 + pulse*0.25})`;
+    ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(120,150,255,0.12)'; ctx.fill();
+    ctx.restore();
+  }
+
+  function drawRocket(){
+    const x = rocket.x, y = rocket.y;
+    // trail
+    if (rocket.trail.length > 1){
+      for (let i = 1; i < rocket.trail.length; i++){
+        const a = i / rocket.trail.length;
+        ctx.strokeStyle = `oklch(0.82 0.16 250 / ${a*0.5})`;
+        ctx.lineWidth = a * 3.5;
+        ctx.beginPath();
+        ctx.moveTo(rocket.trail[i-1][0], rocket.trail[i-1][1]);
+        ctx.lineTo(rocket.trail[i][0], rocket.trail[i][1]);
+        ctx.stroke();
+      }
+    }
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rocket.angle + Math.PI/2);
+    const s = Math.max(1, minDim/400);
+    ctx.scale(s, s);
+    // flame
+    if (rocket.state === 'flying'){
+      const burning = thrusting && rocket.fuel > 0;
+      const f = (burning ? 15 : 6) + Math.random()*5;
+      const w = burning ? 4.2 : 3;
+      const fl = ctx.createLinearGradient(0, 6, 0, 6+f);
+      fl.addColorStop(0, burning ? 'rgba(180,220,255,0.98)' : 'rgba(255,200,80,0.95)');
+      fl.addColorStop(0.4, 'rgba(255,200,80,0.9)');
+      fl.addColorStop(1, 'rgba(255,80,20,0)');
+      ctx.fillStyle = fl;
+      ctx.beginPath();
+      ctx.moveTo(-w, 6); ctx.lineTo(w, 6); ctx.lineTo(0, 6+f); ctx.closePath(); ctx.fill();
+    }
+    // body
+    ctx.fillStyle = '#eef3ff';
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.quadraticCurveTo(5, -3, 4.5, 6);
+    ctx.lineTo(-4.5, 6);
+    ctx.quadraticCurveTo(-5, -3, 0, -10);
+    ctx.closePath(); ctx.fill();
+    // window
+    ctx.fillStyle = '#3a7fd6';
+    ctx.beginPath(); ctx.arc(0, -2, 2.1, 0, Math.PI*2); ctx.fill();
+    // fins
+    ctx.fillStyle = '#e0563a';
+    ctx.beginPath(); ctx.moveTo(-4.5,6); ctx.lineTo(-7,9); ctx.lineTo(-4,2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(4.5,6); ctx.lineTo(7,9); ctx.lineTo(4,2); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawAim(){
+    if (rocket.state !== 'aiming' || !aim) return;
+    const { pts, pull, max } = predict();
+    // slingshot band (pull back)
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2; ctx.setLineDash([2,4]);
+    ctx.beginPath(); ctx.moveTo(rocket.x, rocket.y); ctx.lineTo(aim.cx, aim.cy); ctx.stroke();
+    ctx.setLineDash([]);
+    // predicted trajectory dots
+    const frac = Math.min(1, pull / max);
+    for (let i = 0; i < pts.length; i++){
+      const a = 1 - i/pts.length;
+      const rad = 1.2 + frac*1.6;
+      ctx.fillStyle = `oklch(0.85 0.16 ${250 - frac*40} / ${0.15 + a*0.5})`;
+      ctx.beginPath(); ctx.arc(pts[i][0], pts[i][1], rad, 0, Math.PI*2); ctx.fill();
+    }
+    // power ring on rocket
+    ctx.beginPath(); ctx.arc(rocket.x, rocket.y, 16, -Math.PI/2, -Math.PI/2 + frac*Math.PI*2);
+    ctx.strokeStyle = frac > 0.9 ? 'var(--warn)' : 'rgba(150,190,255,0.9)';
+    ctx.strokeStyle = `oklch(0.8 0.16 ${250 - frac*80})`;
+    ctx.lineWidth = 3; ctx.stroke();
+  }
+
+  function drawParticles(){
+    for (const p of particles){
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.col;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---- Loop ----
+  let last = performance.now();
+  let lastFrameTs = last;
+  let tSec = 0;
+  let paused = true;
+  function loop(now){
+    let dt = (now - last) / 1000;
+    last = now;
+    lastFrameTs = now;
+    if (dt > 0.05) dt = 0.05;       // clamp big gaps
+    if (dt < 0) dt = 0;             // guard against non-monotonic clocks
+    if (!paused){
+      tSec += dt;
+      updatePlanetPositions(dt);
+      step(dt);
+      updateJunk(dt);
+      updateParticles(dt);
+    } else {
+      updatePlanetPositions(dt);   // keep system alive under intro
+      tSec += dt;
+    }
+
+    ctx.clearRect(0,0,W,H);
+    drawBackground(tSec);
+    drawOrbits();
+    drawGoal(tSec);
+    drawSun(tSec);
+    for (const p of planets) drawPlanet(p, tSec);
+    drawPad(tSec);
+    drawJunk();
+    if (rocket.state !== 'dead') drawRocket();
+    drawAim();
+    drawParticles();
+    drawFuel();
+    updateHint();
+  }
+
+  function drawFuel(){
+    if (rocket.state !== 'flying') return;
+    const U = minDim / 400;
+    const w = 104 * U, h = 2 * U, x = (W - w) / 2, y = H - 76 * U, rad = h / 2;
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, rad);
+    ctx.fillStyle = 'rgba(255,255,255,0.09)'; ctx.fill();
+    const f = Math.max(0, rocket.fuel);
+    if (f > 0.001){
+      ctx.beginPath(); ctx.roundRect(x, y, w * f, h, rad);
+      ctx.fillStyle = f > 0.25 ? 'oklch(0.85 0.18 200)' : 'oklch(0.78 0.2 35)';
+      ctx.fill();
+    }
+  }
+
+  let hintMsg = '';
+  function updateHint(){
+    let m;
+    if (rocket.state === 'flying') m = rocket.fuel > 0.02 ? 'Tap &amp; hold to <b>thrust</b>' : 'Out of fuel — ride the gravity';
+    else if (rocket.state === 'aiming') m = 'Release to launch';
+    else if (rocket.state === 'won' || rocket.state === 'dead') m = 'Tap to launch again';
+    else m = '<b>Pull back</b> to sling · <b>tap &amp; hold</b> in flight to thrust';
+    if (m !== hintMsg){ hintEl.innerHTML = m; hintMsg = m; }
+  }
+
+  // ---- Intro / events ----
+  let introVisible = true;
+  const intro = document.getElementById('intro');
+  document.getElementById('playBtn').addEventListener('click', () => {
+    intro.classList.add('hide');
+    introVisible = false;
+    paused = false;
+    setTimeout(()=> intro.remove(), 600);
+  });
+  resetBtn.addEventListener('click', () => { resetRocket(); hideBanner(); });
+
+  canvas.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointermove', onMove, { passive:false });
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', () => { thrusting = false; if(rocket.state==='aiming'){rocket.state='idle'; aim=null;} });
+
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+  document.addEventListener('gesturestart', e => e.preventDefault());
+
+  resize();
+
+  // Animation driver. requestAnimationFrame is the primary clock, but it gets
+  // throttled to ~0 fps in non-foregrounded tabs/iframes (e.g. some preview
+  // panes). A setInterval fallback detects when rAF has stalled and drives the
+  // loop itself, so the game always runs at a smooth frame rate without ever
+  // double-stepping when rAF is healthy.
+  let rafCount = 0;
+  function rafLoop(now){ rafCount++; loop(now); requestAnimationFrame(rafLoop); }
+  requestAnimationFrame(rafLoop);
+  let lastRafCount = -1;
+  setInterval(() => {
+    if (rafCount === lastRafCount) loop(performance.now()); // rAF stalled
+    lastRafCount = rafCount;
+  }, 1000 / 60);
+})();
+</script>
+</body>
+</html>

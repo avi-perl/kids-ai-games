@@ -301,6 +301,68 @@
     .art-pr .pets .bone { font-size: 18px; }
   }
 
+  /* ── Cosmic Sling card art ───────────────────────────── */
+  .art-cs {
+    background: radial-gradient(120% 100% at 50% 45%, #1c2750 0%, #0b1030 48%, #05060f 100%);
+  }
+  /* Starfield */
+  .art-cs .stars {
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(1.5px 1.5px at 18% 28%, #fff 50%, transparent),
+      radial-gradient(1.5px 1.5px at 72% 18%, #fff 50%, transparent),
+      radial-gradient(1px 1px at 38% 68%, rgba(255,255,255,0.85) 50%, transparent),
+      radial-gradient(1px 1px at 88% 58%, rgba(255,255,255,0.7) 50%, transparent),
+      radial-gradient(1.5px 1.5px at 12% 82%, #fff 50%, transparent),
+      radial-gradient(1px 1px at 62% 88%, rgba(255,255,255,0.6) 50%, transparent),
+      radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.7) 50%, transparent);
+  }
+  /* Sun */
+  .art-cs .sun {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff6cc 0%, #ffd24a 45%, #ff8a3c 80%, rgba(255,138,60,0) 100%);
+    box-shadow: 0 0 34px 10px rgba(255,180,80,0.45);
+  }
+  /* Orbit rings */
+  .art-cs .orbit {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(150,180,255,0.22);
+    border-radius: 50%;
+  }
+  .art-cs .o1 { width: 122px; height: 122px; }
+  .art-cs .o2 { width: 188px; height: 188px; }
+  .art-cs .o3 { width: 256px; height: 256px; }
+  /* Planets riding the orbits */
+  .art-cs .planet { position: absolute; border-radius: 50%; }
+  .art-cs .p1 { width: 10px; height: 10px; top: calc(50% - 5px);  left: calc(50% + 56px); background: #6bd3ff; box-shadow: 0 0 6px rgba(107,211,255,0.7); }
+  .art-cs .p2 { width: 14px; height: 14px; top: calc(50% - 101px); left: calc(50% - 7px);  background: #d59a63; box-shadow: 0 0 6px rgba(213,154,99,0.6); }
+  .art-cs .p3 { width: 8px;  height: 8px;  top: calc(50% + 60px);  left: calc(50% + 96px); background: #b58bff; box-shadow: 0 0 6px rgba(181,139,255,0.6); }
+  /* Rocket slinging out */
+  .art-cs .rocket {
+    position: absolute;
+    bottom: 14px; left: 16px;
+    font-size: 34px;
+    transform: rotate(-32deg);
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.55));
+  }
+  /* Compact cosmic art for short viewport */
+  @media (max-height: 520px) {
+    .art-cs .sun { width: 38px; height: 38px; }
+    .art-cs .o1 { width: 88px;  height: 88px; }
+    .art-cs .o2 { width: 134px; height: 134px; }
+    .art-cs .o3 { width: 182px; height: 182px; }
+    .art-cs .p1 { left: calc(50% + 40px); }
+    .art-cs .p2 { top: calc(50% - 72px); }
+    .art-cs .p3 { top: calc(50% + 44px); left: calc(50% + 70px); }
+    .art-cs .rocket { font-size: 26px; bottom: 9px; left: 11px; }
+  }
+
   /* ── Coming-soon card art ────────────────────────────── */
   .art-soon {
     background: linear-gradient(135deg, #e8e8e4 0%, #d8d8d0 100%);
@@ -357,6 +419,26 @@
     <div class="card-body">
       <div class="card-name">Puppy Room</div>
       <div class="card-desc">Wander the cozy room and play with the puppies — joystick to move!</div>
+      <span class="card-play">▶ Play now</span>
+    </div>
+  </a>
+
+  <!-- Cosmic Sling -->
+  <a class="card playable" href="./03-cosmic-sling/">
+    <div class="card-art art-cs">
+      <div class="stars"></div>
+      <div class="orbit o3"></div>
+      <div class="orbit o2"></div>
+      <div class="orbit o1"></div>
+      <div class="sun"></div>
+      <div class="planet p1"></div>
+      <div class="planet p2"></div>
+      <div class="planet p3"></div>
+      <div class="rocket">🚀</div>
+    </div>
+    <div class="card-body">
+      <div class="card-name">Cosmic Sling</div>
+      <div class="card-desc">Sling your rocket past the planets using real gravity — tap &amp; hold to thrust!</div>
       <span class="card-play">▶ Play now</span>
     </div>
   </a>
