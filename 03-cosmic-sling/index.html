@@ -559,7 +559,10 @@
     if (rocket.state === 'dead' || rocket.state === 'won') { resetRocket(); hideBanner(); }
     if (rocket.state !== 'idle') return;
     const p = pointFromEvent(e);
-    aim = { cx: p.x, cy: p.y };
+    // Anchor the sling at wherever the drag begins (sx,sy). The launch is driven
+    // by the drag delta from this anchor, not by the touch's distance to the
+    // rocket — so you can aim by dragging from anywhere on the screen.
+    aim = { sx: p.x, sy: p.y, cx: p.x, cy: p.y };
     rocket.state = 'aiming';
     e.preventDefault();
   }
@@ -573,9 +576,10 @@
     thrusting = false;
     if (rocket.state !== 'aiming' || !aim) return;
     const U = minDim / 400;
-    // launch vector = from current touch back toward rocket (pull-back)
-    let dx = rocket.x - aim.cx;
-    let dy = rocket.y - aim.cy;
+    // launch vector = opposite the drag (pull-back), measured from the drag's
+    // anchor — so the sling works from anywhere, independent of the pad's position
+    let dx = aim.sx - aim.cx;
+    let dy = aim.sy - aim.cy;
     let pull = Math.hypot(dx, dy);
     const maxPull = MAX_PULL * U;
     if (pull > maxPull){ dx *= maxPull/pull; dy *= maxPull/pull; pull = maxPull; }
@@ -602,7 +606,7 @@
   // ---- Trajectory preview ----
   function predict(){
     const U = minDim / 400;
-    let dx = rocket.x - aim.cx, dy = rocket.y - aim.cy;
+    let dx = aim.sx - aim.cx, dy = aim.sy - aim.cy;
     let pull = Math.hypot(dx, dy);
     const maxPull = MAX_PULL * U;
     if (pull > maxPull){ dx *= maxPull/pull; dy *= maxPull/pull; pull = maxPull; }
@@ -1029,10 +1033,24 @@
   function drawAim(){
     if (rocket.state !== 'aiming' || !aim) return;
     const { pts, pull, max } = predict();
-    // slingshot band (pull back)
+    const U = minDim / 400;
+    // slingshot band (pull back) — anchored at the rocket and stretched opposite
+    // the launch direction by the current pull, so it reads as a sling no matter
+    // where on screen the drag started.
+    let bdx = aim.sx - aim.cx, bdy = aim.sy - aim.cy;   // launch direction
+    let bp = Math.hypot(bdx, bdy);
+    const bmax = MAX_PULL * U;
+    if (bp > bmax){ bdx *= bmax/bp; bdy *= bmax/bp; }
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 2; ctx.setLineDash([2,4]);
-    ctx.beginPath(); ctx.moveTo(rocket.x, rocket.y); ctx.lineTo(aim.cx, aim.cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rocket.x, rocket.y); ctx.lineTo(rocket.x - bdx, rocket.y - bdy); ctx.stroke();
+    ctx.setLineDash([]);
+    // faint marker at the drag anchor so the relative control reads clearly
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.beginPath(); ctx.arc(aim.sx, aim.sy, 3, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1.5; ctx.setLineDash([2,5]);
+    ctx.beginPath(); ctx.moveTo(aim.sx, aim.sy); ctx.lineTo(aim.cx, aim.cy); ctx.stroke();
     ctx.setLineDash([]);
     // predicted trajectory dots
     const frac = Math.min(1, pull / max);
