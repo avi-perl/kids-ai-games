@@ -45,23 +45,7 @@
     padding: calc(env(safe-area-inset-top) + 14px) 14px 14px;
     gap: 14px;
   }
-  .brand {
-    display: flex; align-items: center; gap: 8px;
-    font-weight: 700; letter-spacing: 0.1em; font-size: 13px;
-    text-transform: uppercase;
-    color: var(--ink);
-    text-shadow: 0 1px 18px rgba(90,130,255,0.5);
-    min-width: 0;                      /* allow it to shrink instead of squeezing the chips */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .brand .dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    flex: none;
-    background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 60%, transparent 72%);
-    box-shadow: 0 0 14px 2px var(--accent);
-  }
+  .brand { flex: none; }
   .stats { display: flex; gap: 9px; flex: none; }
   .chip {
     display: flex; flex-direction: column; align-items: center;
@@ -95,8 +79,6 @@
 
   /* Small phones: scale the HUD down so nothing crowds. */
   @media (max-width: 380px) {
-    .brand { font-size: 11.5px; letter-spacing: 0.05em; gap: 7px; }
-    .brand .dot { width: 8px; height: 8px; }
     .stats { gap: 7px; }
     .chip { min-width: 52px; padding: 6px 9px; }
     .chip .v { font-size: 15px; }
@@ -199,7 +181,7 @@
 
   <div class="hud">
     <div class="topbar">
-      <div class="brand"><span class="dot"></span> Cosmic Sling</div>
+      <div class="brand" aria-hidden="true"></div>
       <div class="stats">
         <div class="chip"><span class="v" id="stLaunch">0</span><span class="k">Launches</span></div>
         <div class="chip good"><span class="v" id="stWin">0</span><span class="k">Orbits Hit</span></div>
@@ -233,7 +215,7 @@
 
   // ---- World layout (recomputed on resize) ----
   const SUN = { x: 0, y: 0, r: 0, mass: 0, spin: 0 };
-  let GOAL_Y = 0;          // top goal band
+  let GOAL_Y = 0;          // top goal band / line
   let PAD = { x: 0, y: 0 };// launch pad position
   let RX = 0, RY = 0;      // orbit-field semi-axes (fill the screen)
   const planets = [];      // built each resize, but angles persist
@@ -315,9 +297,9 @@
     SUN.fieldR = SUN.r + 210 * U;
     SUN.K = GBASE * SUN.mass * U * U * U;
 
-    // Keep the dotted goal line clear of the top HUD (brand + score chips + the
-    // notch safe-area) so the scores never sit on top of the line you're aiming
-    // for. Measure the topbar's real rendered bottom and drop the line below it.
+    // Keep the goal line clear of the top HUD (brand + score chips + the notch
+    // safe-area) so the scores never sit on top of the line. Measure the
+    // topbar's real rendered bottom and drop the line below it.
     const topbarEl = document.querySelector('.topbar');
     const hudBottom = topbarEl ? topbarEl.getBoundingClientRect().bottom : 60;
     GOAL_Y = Math.max(50 * U, H * 0.06, hudBottom + 12 * U);
@@ -335,7 +317,7 @@
     planets.length = 0;
     planetDefs.forEach((d) => {
       const nf = innerF + (d.frac / 0.76) * (1 - innerF);   // 0..1 orbit fraction
-      const r = d.size * U;
+      const r = d.size * 1.15 * U;                           // 15% larger planets
       // safe (inner) planets: the "atmosphere" green glow doubles as the catch
       // zone for the scripted slingshot; they exert no passive gravity pull.
       const fieldR = d.safe
@@ -681,7 +663,7 @@
           if (hit){ explode(rocket.x, rocket.y, hit === SUN); spawnJunk(rocket.x, rocket.y, rocket.vx, rocket.vy, hit); lose(crashMsg(hit)); return; }
           if (junkHitRocket()){ explode(rocket.x, rocket.y, false); spawnJunk(rocket.x, rocket.y, rocket.vx, rocket.vy, null); lose('Wrecked by orbiting debris'); return; }
         }
-        if (rocket.y < GOAL_Y){ win(); return; }
+        if (rocket.y < GOAL_Y && rocket.x >= 0 && rocket.x <= W){ win(); return; }
         if (rocket.x < -60 || rocket.x > W + 60 || rocket.y > H + 80){ lose('Lost in space'); return; }
       }
     }
@@ -729,7 +711,7 @@
       rocket.cap = null;
       sparkle(rocket.x, rocket.y);
     }
-    if (rocket.y < GOAL_Y){ win(); return false; }
+    if (rocket.y < GOAL_Y && rocket.x >= 0 && rocket.x <= W){ win(); return false; }
     return true;
   }
 
@@ -946,24 +928,20 @@
   function drawOrbits(){ /* baked into background sprite */ }
 
   function drawGoal(t){
-    const h = GOAL_Y;
-    const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, 'oklch(0.82 0.16 150 / 0.30)');
+    const y = GOAL_Y;
+    // soft green band fading down from the top
+    const g = ctx.createLinearGradient(0, 0, 0, y);
+    g.addColorStop(0, 'oklch(0.82 0.16 150 / 0.28)');
     g.addColorStop(1, 'oklch(0.82 0.16 150 / 0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, h);
-    // pulsing line
-    const pulse = 0.5 + 0.5*Math.sin(t*2);
-    ctx.strokeStyle = `oklch(0.85 0.17 150 / ${0.35 + pulse*0.4})`;
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, y);
+    // pulsing dashed green line
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2);
+    ctx.strokeStyle = `oklch(0.85 0.17 150 / ${0.4 + pulse * 0.4})`;
     ctx.lineWidth = 2;
     ctx.setLineDash([10, 8]);
-    ctx.lineDashOffset = -t*22;
-    ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(W, h); ctx.stroke();
+    ctx.lineDashOffset = -t * 22;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
     ctx.setLineDash([]);
-    // label
-    ctx.fillStyle = 'oklch(0.88 0.12 150 / 0.85)';
-    ctx.font = `700 ${Math.max(10, minDim/40)}px ui-sans-serif, system-ui, sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('◇  FAR SIDE — REACH IT  ◇', W/2, h/2);
   }
 
   function drawSun(t){
