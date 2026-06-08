@@ -195,7 +195,7 @@
 
   <div class="intro" id="intro">
     <h1>Cosmic<br>Sling</h1>
-    <p>Sling your rocket from the launch pad to the <b>far side of the system</b>. Every planet and the Sun pull it with real gravity — <b>slingshot</b> around them to curve your shot home. <b>Tap &amp; hold</b> in flight to burn fuel and thrust forward.</p>
+    <p>Sling your rocket from the launch pad to the <b>far side of the system</b>. Every planet and the Sun pull it with real gravity — <b>slingshot</b> around them to curve your shot home. <b>Press &amp; hold anywhere</b> in flight to burn boost and go faster.</p>
     <button class="play" id="playBtn">Launch Mission</button>
   </div>
 
@@ -271,7 +271,7 @@
   const SAFE_BOOST = 1.5;  // slingshot speed gain on release
   const THRUST_ACC = 240;  // forward thrust accel (× U) when burning fuel
   const THRUST_GRAV = 5.0; // gravity multiplier while burning fuel
-  const TANK = 0.9;        // seconds of continuous thrust per launch
+  const TANK = 0.45;       // seconds of continuous thrust per launch (half tank)
 
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -1134,10 +1134,32 @@
   function drawFuel(){
     if (rocket.state !== 'flying') return;
     const U = minDim / 400;
-    const w = 104 * U, h = 2 * U, x = (W - w) / 2, y = H - 76 * U, rad = h / 2;
+    const w = 104 * U, h = 3 * U, x = (W - w) / 2, y = H - 76 * U, rad = h / 2;
+    const f = Math.max(0, rocket.fuel);
+    const burning = thrusting && f > 0;
+
+    // Prominent call-to-action so it's obvious you can press to go faster.
+    ctx.textAlign = 'center';
+    if (f > 0.02){
+      const pulse = 0.5 + 0.5 * Math.sin(tSec * 5);
+      // gentle pulse while idle; solid + brighter while actually boosting
+      ctx.fillStyle = burning
+        ? 'oklch(0.9 0.18 200)'
+        : `oklch(0.9 0.05 250 / ${0.45 + pulse * 0.5})`;
+      ctx.font = `800 ${Math.max(12, 13 * U)}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(burning ? '🚀  BOOSTING!' : '👆  PRESS & HOLD TO GO FASTER',
+                   W / 2, y - 12 * U);
+    } else {
+      ctx.fillStyle = 'oklch(0.78 0.05 40 / 0.8)';
+      ctx.font = `700 ${Math.max(11, 11 * U)}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('OUT OF BOOST — RIDE THE GRAVITY', W / 2, y - 12 * U);
+    }
+
+    // fuel / boost bar
     ctx.beginPath(); ctx.roundRect(x, y, w, h, rad);
     ctx.fillStyle = 'rgba(255,255,255,0.09)'; ctx.fill();
-    const f = Math.max(0, rocket.fuel);
     if (f > 0.001){
       ctx.beginPath(); ctx.roundRect(x, y, w * f, h, rad);
       ctx.fillStyle = f > 0.25 ? 'oklch(0.85 0.18 200)' : 'oklch(0.78 0.2 35)';
@@ -1148,10 +1170,10 @@
   let hintMsg = '';
   function updateHint(){
     let m;
-    if (rocket.state === 'flying') m = rocket.fuel > 0.02 ? 'Tap &amp; hold to <b>thrust</b>' : 'Out of fuel — ride the gravity';
+    if (rocket.state === 'flying') m = rocket.fuel > 0.02 ? 'Press &amp; hold anywhere to <b>go faster</b>' : 'Out of boost — ride the gravity';
     else if (rocket.state === 'aiming') m = 'Release to launch';
     else if (rocket.state === 'won' || rocket.state === 'dead') m = 'Tap to launch again';
-    else m = '<b>Drag anywhere</b> &amp; pull back to sling · <b>hold</b> in flight to thrust';
+    else m = '<b>Drag anywhere</b> &amp; pull back to sling · <b>hold</b> in flight to go faster';
     if (m !== hintMsg){ hintEl.innerHTML = m; hintMsg = m; }
   }
 
