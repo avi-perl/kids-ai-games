@@ -317,12 +317,13 @@
     planets.length = 0;
     planetDefs.forEach((d) => {
       const nf = innerF + (d.frac / 0.76) * (1 - innerF);   // 0..1 orbit fraction
-      const r = d.size * 1.15 * U;                           // 15% larger planets
+      const r = d.size * 1.5 * U;                            // 50% larger planets
       // safe (inner) planets: the "atmosphere" green glow doubles as the catch
       // zone for the scripted slingshot; they exert no passive gravity pull.
-      const fieldR = d.safe
+      const baseField = d.safe
         ? r + 17 * U
         : r * 1.7 + Math.min(135 * U, Math.sqrt(d.mass) * 6.4 * U);
+      const fieldR = baseField * 1.5;                        // 50% larger gravity / catch area
       planets.push({
         def: d,
         nf,
