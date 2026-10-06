@@ -16,6 +16,18 @@ kids-game/
       update.js       ← update() game loop tick
       draw.js         ← all draw functions + main draw()
       ui.js           ← input, settings panel, modals, loop(), init
+  04-times-sprint/
+    index.html        ← all screens (menu, players, editor, history, play, summary) + CSS
+    js/
+      brain.js        ← adaptive engine: fact strength, weak-fact detection, card picking (no DOM; runs in Node)
+      store.js        ← profiles + settings + models (localStorage), sprint logs (IndexedDB)
+      report.js       ← stats from sprint logs + CSV/JSON exports
+      sound.js        ← WebAudio SFX
+      app.js          ← shared state ($, showScreen, useProfile, mastery grid, toast)
+      charts.js       ← SVG line chart + 9×9 heatmap for History
+      game.js         ← one sprint: keypad, answer rows, reveal, per-attempt log, summary
+      history.js      ← History screen: Progress / Questions / Sprints tabs + export menu
+      screens.js      ← menu, player picker/editor, boot
   CLAUDE.md
 ```
 When adding a new game, create a new subfolder (e.g. `word-blast/index.html`) and add a card to the root `index.html` grid.

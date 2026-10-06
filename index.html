@@ -363,6 +363,27 @@
     .art-cs .rocket { font-size: 26px; bottom: 9px; left: 11px; }
   }
 
+  /* ── Times Sprint card art ───────────────────────────── */
+  .art-ts {
+    background: linear-gradient(160deg, #fdfcf7 0%, #efeee6 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  }
+  .art-ts .ts-row { display: flex; gap: 6px; }
+  .art-ts .ts-row span {
+    width: 40px; height: 40px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 900; color: #fff;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.12);
+  }
+  .art-ts .g { background: #6aaa64; }
+  .art-ts .y { background: #c9b458; }
+  .art-ts .x { background: #787c7e; }
+  .art-ts .q { background: none !important; color: #1a1a1b !important; box-shadow: none !important; width: auto !important; padding: 0 2px; }
+  @media (max-height: 520px) {
+    .art-ts { gap: 5px; }
+    .art-ts .ts-row span { width: 28px; height: 28px; font-size: 17px; }
+  }
+
   /* ── Coming-soon card art ────────────────────────────── */
   .art-soon {
     background: linear-gradient(135deg, #e8e8e4 0%, #d8d8d0 100%);
@@ -439,6 +460,20 @@
     <div class="card-body">
       <div class="card-name">Cosmic Sling</div>
       <div class="card-desc">Sling your rocket past the planets using real gravity — tap &amp; hold to thrust!</div>
+      <span class="card-play">▶ Play now</span>
+    </div>
+  </a>
+
+  <!-- Times Sprint -->
+  <a class="card playable" href="./04-times-sprint/">
+    <div class="card-art art-ts">
+      <div class="ts-row"><span class="q">7</span><span class="q">×</span><span class="q">8</span><span class="q">=</span></div>
+      <div class="ts-row"><span class="x">5</span><span class="y">4</span></div>
+      <div class="ts-row"><span class="g">5</span><span class="g">6</span></div>
+    </div>
+    <div class="card-body">
+      <div class="card-name">Times Sprint</div>
+      <div class="card-desc">Two-minute times-table sprints with three tries per question. Learns which ones are tricky for you.</div>
       <span class="card-play">▶ Play now</span>
     </div>
   </a>

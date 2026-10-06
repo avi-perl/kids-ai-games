@@ -1,4 +1,4 @@
-const CACHE = 'fun-games-v11';
+const CACHE = 'fun-games-v12';
 
 const PRECACHE = [
   './',
@@ -10,6 +10,17 @@ const PRECACHE = [
   './01-hill-jumper/index.html',
   './03-cosmic-sling/',
   './03-cosmic-sling/index.html',
+  './04-times-sprint/',
+  './04-times-sprint/index.html',
+  './04-times-sprint/js/brain.js',
+  './04-times-sprint/js/store.js',
+  './04-times-sprint/js/report.js',
+  './04-times-sprint/js/charts.js',
+  './04-times-sprint/js/history.js',
+  './04-times-sprint/js/sound.js',
+  './04-times-sprint/js/app.js',
+  './04-times-sprint/js/game.js',
+  './04-times-sprint/js/screens.js',
 ];
 
 self.addEventListener('install', e => {
