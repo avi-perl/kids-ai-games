@@ -28,6 +28,16 @@ kids-game/
       game.js         ← one sprint: keypad, answer rows, reveal, per-attempt log, summary
       history.js      ← History screen: Progress / Questions / Sprints tabs + export menu
       screens.js      ← menu, player picker/editor, boot
+  05-keypad-lock/
+    index.html        ← The Door: photo of the note (door.jpg) + Lockey 2930 lock, code 2367 (HTML + CSS + <script> imports)
+    door.jpg
+    js/
+      lock-contract.js     ← lock contract docs + LockElement base class
+      lockey-2930-rules.js ← Lockey 2930 rules (no DOM; runs in Node)
+      lockey-2930-keypad.js← <lockey-2930-keypad> SVG input surface (raw down/up/turn only)
+      lockey-2930-lock.js  ← <lockey-2930-lock>: keypad + rules
+      sound.js             ← button-click sound + remembered mute
+      door.js              ← page wiring: green/red glow, note expand, sound button
   CLAUDE.md
 ```
 When adding a new game, create a new subfolder (e.g. `word-blast/index.html`) and add a card to the root `index.html` grid.
@@ -43,4 +53,5 @@ Every designed element (enemies, obstacles, hazards, power-ups, etc.) must appea
 - Entity registry: `ENEMY_TYPES` object; `enemies[]` array; `spawners[]` timer array.
 - Double jump with coyote time (6 frames) and jump buffer (10 frames).
 - Lava pools use smoothstep blending in `getGroundAt`; drawn before terrain so terrain walls frame the pit.
+- Locks (05): every lock follows `lock-contract.js` — a rule-free input surface emitting `lock-input` (down/up/turn), wrapped by a `LockElement` subclass whose DOM-free rules class decides `lock-attempt` results. The rules class loads in Node (`require`) for quick checks.
 - Shared lava drawing helper: `_drawLava(x, top, w, bottom, frame, seed)` — used by both in-game and gallery renderers.

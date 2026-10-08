@@ -384,6 +384,19 @@
     .art-ts .ts-row span { width: 28px; height: 28px; font-size: 17px; }
   }
 
+  /* ── The Door card art ───────────────────────────────── */
+  .art-door {
+    background: #8d9094 url(./05-keypad-lock/door.jpg) no-repeat;
+    background-size: 170% auto; background-position: 50% 47%;
+  }
+  .art-door .badge {
+    position: absolute; right: 12px; bottom: 10px; font-size: 34px;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35));
+  }
+  @media (max-height: 520px) {
+    .art-door .badge { font-size: 24px; right: 8px; bottom: 6px; }
+  }
+
   /* ── Coming-soon card art ────────────────────────────── */
   .art-soon {
     background: linear-gradient(135deg, #e8e8e4 0%, #d8d8d0 100%);
@@ -474,6 +487,18 @@
     <div class="card-body">
       <div class="card-name">Times Sprint</div>
       <div class="card-desc">Two-minute times-table sprints with three tries per question. Learns which ones are tricky for you.</div>
+      <span class="card-play">▶ Play now</span>
+    </div>
+  </a>
+
+  <!-- The Door -->
+  <a class="card playable" href="./05-keypad-lock/">
+    <div class="card-art art-door">
+      <span class="badge">🔐</span>
+    </div>
+    <div class="card-body">
+      <div class="card-name">The Door</div>
+      <div class="card-desc">Read the note on the door, then crack the push-button lock.</div>
       <span class="card-play">▶ Play now</span>
     </div>
   </a>

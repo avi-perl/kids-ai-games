@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1b1a19">
+<title>The Door</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 30%, #2e2c2a, #161514 70%);
+    overflow: hidden; -webkit-tap-highlight-color: transparent;
+  }
+  main {
+    height: 100vh; height: 100dvh;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+
+  /* The photo: zoomed in on the note; tap to grow it to the whole picture, tap again to shrink. */
+  .note {
+    --w: min(100vw - 32px, 460px);
+    --full-h: min(var(--w) * 1448 / 1086, 72dvh);
+    flex: none; width: var(--w); height: calc(var(--w) / 2);
+    border: 0; border-radius: 14px; cursor: zoom-in;
+    background: #8d9094 url(door.jpg) no-repeat;
+    background-size: 160% auto; background-position: 50% 47%;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 255, 255, .08);
+    transition: width .35s ease, height .35s ease, background-size .35s ease, background-position .35s ease;
+  }
+  .note.open {
+    width: calc(var(--full-h) * 1086 / 1448); height: var(--full-h);
+    background-size: 100% auto; background-position: 50% 50%; cursor: zoom-out;
+  }
+
+  /* The lock fills whatever space is left, keeping its shape. */
+  .lock-wrap { flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
+  lockey-2930-lock { width: min(100cqw, calc(100cqh * 212 / 632)); }
+  lockey-2930-lock.right { --glow: 60, 225, 125; animation: glow 1.6s ease-out; }
+  lockey-2930-lock.wrong { --glow: 240, 70, 60;  animation: glow 1.6s ease-out; }
+  @keyframes glow {
+    15% { filter: drop-shadow(0 0 10px rgba(var(--glow), 1)) drop-shadow(0 0 28px rgba(var(--glow), .85)); }
+    100% { filter: drop-shadow(0 0 0 rgba(var(--glow), 0)) drop-shadow(0 0 0 rgba(var(--glow), 0)); }
+  }
+
+  .sound {
+    position: fixed; z-index: 5; bottom: max(10px, env(safe-area-inset-bottom)); right: max(10px, env(safe-area-inset-right));
+    width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: #fff;
+    opacity: .35; cursor: pointer; display: grid; place-items: center;
+  }
+  .sound:hover { opacity: .6; }
+  .sound svg { width: 20px; height: 20px; }
+  .sound .off { display: none; }
+  .sound.muted .on { display: none; }
+  .sound.muted .off { display: inline; }
+
+  /* Wide screens: whole photo beside the lock. */
+  @media (min-width: 760px) and (min-aspect-ratio: 1/1) {
+    main { flex-direction: row; justify-content: center; gap: 32px; padding: 24px; }
+    .note, .note.open {
+      width: auto; height: min(88vh, 700px); aspect-ratio: 1086 / 1448;
+      background-size: cover; background-position: center; cursor: default; transition: none;
+    }
+    .lock-wrap { flex: none; width: auto; height: min(88vh, 700px); aspect-ratio: 212 / 632; }
+  }
+</style>
+</head>
+<body>
+  <main>
+    <button class="note" id="note" type="button" aria-label="Note on the door" aria-expanded="false"></button>
+    <div class="lock-wrap">
+      <lockey-2930-lock id="lock" code="2367"></lockey-2930-lock>
+    </div>
+  </main>
+
+  <button class="sound" id="sound" type="button" aria-label="Sound on" aria-pressed="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/>
+      <path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>
+      <path class="off" d="m16 9 6 6m0-6-6 6"/>
+    </svg>
+  </button>
+
+  <script src="js/lock-contract.js"></script>
+  <script src="js/lockey-2930-rules.js"></script>
+  <script src="js/lockey-2930-keypad.js"></script>
+  <script src="js/lockey-2930-lock.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/door.js"></script>
+</body>
+</html>
