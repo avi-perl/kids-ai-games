@@ -7,9 +7,9 @@
 <meta name="theme-color" content="#1b1a19">
 <title>The Door</title>
 <script>
-  // A link with its own code and note (?…, see js/note-link.js) starts on the blank note, so the
-  // handwritten one never flashes up before the new words are printed on it.
-  if (location.search.length > 1) document.documentElement.classList.add('custom-note');
+  // A link with its own code and note (#… or ?…, see js/note-link.js) starts on the blank note, so
+  // the handwritten one never flashes up before the new words are printed on it.
+  if (location.hash.length > 1 || location.search.length > 1) document.documentElement.classList.add('custom-note');
 </script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -41,14 +41,30 @@
   }
   .custom-note .note { background-image: url(door-blank.jpg); }
 
+  /* Opened: the photo gives way to the message, on a soft green card. */
+  .note.solved {
+    display: grid; place-items: center; padding: 16px; cursor: default;
+    background: radial-gradient(ellipse at 50% 35%, #2f5240, #1d3428 75%);
+    color: #d4f3df;
+  }
+  .note .message {
+    font: 700 clamp(24px, 7vw, 40px)/1.15 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    text-align: center; overflow-wrap: anywhere; animation: message-in .6s ease-out;
+  }
+  @keyframes message-in { from { opacity: 0; transform: scale(.94); } }
+
   /* The lock fills whatever space is left, keeping its shape. */
   .lock-wrap { flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
   lockey-2930-lock { width: min(100cqw, calc(100cqh * 212 / 632)); }
-  lockey-2930-lock.right { --glow: 60, 225, 125; animation: glow 1.6s ease-out; }
-  lockey-2930-lock.wrong { --glow: 240, 70, 60;  animation: glow 1.6s ease-out; }
+  lockey-2930-lock.wrong { --glow: 240, 70, 60; animation: glow 1.6s ease-out; }
+  lockey-2930-lock.solved { --glow: 60, 225, 125; animation: solved 1.6s ease-out forwards; }
   @keyframes glow {
     15% { filter: drop-shadow(0 0 10px rgba(var(--glow), 1)) drop-shadow(0 0 28px rgba(var(--glow), .85)); }
     100% { filter: drop-shadow(0 0 0 rgba(var(--glow), 0)) drop-shadow(0 0 0 rgba(var(--glow), 0)); }
+  }
+  @keyframes solved { /* flares like a wrong try, then stays lit */
+    15% { filter: drop-shadow(0 0 10px rgba(var(--glow), 1)) drop-shadow(0 0 28px rgba(var(--glow), .85)); }
+    100% { filter: drop-shadow(0 0 6px rgba(var(--glow), .75)) drop-shadow(0 0 18px rgba(var(--glow), .4)); }
   }
 
   .sound {
@@ -61,6 +77,13 @@
   .sound .off { display: none; }
   .sound.muted .on { display: none; }
   .sound.muted .off { display: inline; }
+
+  .make {
+    position: fixed; z-index: 5; bottom: max(10px, env(safe-area-inset-bottom)); left: max(14px, env(safe-area-inset-left));
+    font: 12px/36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff; opacity: .35; text-decoration: none;
+  }
+  .make:hover { opacity: .6; text-decoration: underline; }
 
   /* Wide screens: whole photo beside the lock. */
   @media (min-width: 760px) and (min-aspect-ratio: 1/1) {
@@ -81,6 +104,7 @@
     </div>
   </main>
 
+  <a class="make" href="make.html">make your own</a>
   <button class="sound" id="sound" type="button" aria-label="Sound on" aria-pressed="false">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/>

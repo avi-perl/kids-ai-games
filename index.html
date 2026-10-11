@@ -5,8 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fun Games</title>
 <script>
-  // A door link (/?<payload>, see 05-keypad-lock/js/note-link.js) goes straight to The Door.
-  if (location.search.length > 1) location.replace('./05-keypad-lock/' + location.search);
+  // A door link (/#<payload>, or from before /?<payload>; see 05-keypad-lock/js/note-link.js)
+  // goes straight to The Door.
+  function openDoorLink() {
+    const link = /^#(~|%7E)?[A-Za-z0-9_-]{2,}$/i.test(location.hash) || location.search.length > 1;
+    if (link) location.replace('./05-keypad-lock/' + location.search + location.hash);
+  }
+  openDoorLink();
+  addEventListener('hashchange', openDoorLink);
 </script>
 <meta name="description" content="A collection of fun browser games for kids">
 <meta name="theme-color" content="#4a90d9">

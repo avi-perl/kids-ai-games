@@ -64,13 +64,21 @@ const Lockey2930Rules = (() => {
       this.setCode(code);
     }
 
-    get code() { return inOrder(this._code).join(''); }
+    get code() { return this._codeCheck ? null : inOrder(this._code).join(''); }
 
     setCode(raw) {
       const v = Lockey2930Rules.validateCode(raw);
       if (!v.ok) throw new Error(v.error);
       this._code = new Set(v.code);
+      this._codeCheck = null;
       this._seated.clear(); // re-coding means taking the lock apart with C held down
+    }
+
+    // Instead of a code, a test the code passes: fn(code) gets the pushed-in code buttons in order
+    // (no Y) and says whether that's the code. The lock then can't tell which buttons are wrong.
+    setCodeCheck(fn) {
+      this._codeCheck = fn;
+      this._seated.clear();
     }
 
     reset() { this._seated.clear(); }
@@ -91,13 +99,17 @@ const Lockey2930Rules = (() => {
     }
 
     _check() {
+      if (this._codeCheck) {
+        const ok = !!this._codeCheck(inOrder(this._seated).filter(b => b !== 'Y').join(''));
+        return { ok, wrong: [], missing: [], unknown: !ok };
+      }
       const wrong = [...this._seated].filter(b => b !== 'Y' && !this._code.has(b));
       const missing = [...this._code].filter(b => !this._seated.has(b));
       return { ok: !wrong.length && !missing.length, wrong: inOrder(new Set(wrong)), missing: inOrder(new Set(missing)) };
     }
 
     _turn() {
-      const { ok, wrong, missing } = this._check();
+      const { ok, wrong, missing, unknown } = this._check();
       if (ok && this._seated.has('Y')) {
         return { opened: true, reason: 'passage', message: 'Passage mode — it stays unlocked until C.' };
       }
@@ -105,6 +117,7 @@ const Lockey2930Rules = (() => {
         this._seated.clear();
         return { opened: true, reason: 'code', message: 'The tumblers dropped back out.' };
       }
+      if (unknown) return { opened: false, reason: 'wrong', wrong, missing, message: 'That isn\'t the code — press C and start over.' };
       const parts = [];
       if (wrong.length) parts.push(`wrong button pushed in: ${wrong.join(' ')} — press C and start over`);
       if (missing.length) parts.push(`not pushed in: ${missing.join(' ')}`);

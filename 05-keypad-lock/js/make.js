@@ -3,6 +3,7 @@ const note = document.getElementById('note');
 const textIn = document.getElementById('text');
 const codeIn = document.getElementById('code');
 const codeHint = document.getElementById('code-hint');
+const messageIn = document.getElementById('message');
 const linkOut = document.getElementById('link');
 const copyBtn = document.getElementById('copy');
 const tryLink = document.getElementById('try');
@@ -29,9 +30,9 @@ function cleanCode() {
 let linkJob = 0;
 async function makeLink() {
   const mine = ++linkJob;
-  const payload = await NoteLink.encode({ code: codeIn.value, text: textIn.value });
+  const payload = await NoteLink.encode({ code: codeIn.value, text: textIn.value, message: messageIn.value });
   if (mine !== linkJob) return;
-  const href = new URL(`../?${payload}`, location.href).href;
+  const href = new URL(`../#${payload}`, location.href).href;
   linkOut.value = href;
   tryLink.href = href;
 }
@@ -55,10 +56,11 @@ function changed() {
   makeLink();
   clearTimeout(paintTimer);
   paintTimer = setTimeout(paint, 250);
-  try { localStorage.setItem(DRAFT, JSON.stringify({ text: textIn.value, code: codeIn.value })); } catch {}
+  try { localStorage.setItem(DRAFT, JSON.stringify({ text: textIn.value, code: codeIn.value, message: messageIn.value })); } catch {}
 }
 
 textIn.addEventListener('input', changed);
+messageIn.addEventListener('input', changed);
 codeIn.addEventListener('input', () => { cleanCode(); changed(); });
 
 note.addEventListener('click', () => {
@@ -80,7 +82,10 @@ copyBtn.addEventListener('click', async () => {
 // Pick up where the last visit left off.
 try {
   const draft = JSON.parse(localStorage.getItem(DRAFT));
-  if (draft) { textIn.value = draft.text ?? ''; codeIn.value = draft.code ?? ''; cleanCode(); }
+  if (draft) { textIn.value = draft.text ?? ''; codeIn.value = draft.code ?? ''; messageIn.value = draft.message ?? ''; cleanCode(); }
 } catch {}
+// The usual message, unless they write their own (which then rides along in the link).
+messageIn.placeholder = NoteLink.MESSAGE;
+document.getElementById('message-hint').textContent = `Leave empty for “${NoteLink.MESSAGE}”`;
 makeLink();
 paint();

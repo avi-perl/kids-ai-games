@@ -1,4 +1,4 @@
-const CACHE = 'fun-games-v16';
+const CACHE = 'fun-games-v19';
 
 const PRECACHE = [
   './',
@@ -53,20 +53,20 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Stale-while-revalidate: serve cache instantly, update in background
+// Network first, so a new version shows up at once (old cached pages could misread new links);
+// the cache is the fallback for playing offline.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
 
   e.respondWith(
-    caches.open(CACHE).then(async cache => {
-      const cached = await cache.match(e.request);
-      const fetchPromise = fetch(e.request).then(res => {
-        if (res && res.status === 200) cache.put(e.request, res.clone());
-        return res;
-      }).catch(() => null);
-      return cached || fetchPromise;
-    })
+    fetch(e.request).then(res => {
+      if (res && res.status === 200) {
+        const copy = res.clone();
+        caches.open(CACHE).then(cache => cache.put(e.request, copy));
+      }
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });

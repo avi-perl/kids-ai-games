@@ -16,6 +16,8 @@
 //    e.g. <lockey-2930-lock code="2367">
 //      lock.info                     { model, maker, controls, code: { buttons, minLength, maxLength, ordered, repeats }, rules }
 //      lock.code                     the correct passcode (also the `code` attribute); setting an invalid one throws
+//      lock.codeCheck = fn           instead of a code: fn(code) → true for the right one (say, a hash
+//                                    compare), so the page never holds the code; lock.code is then null
 //      lock.validateCode(code)       → { ok, code, error }  — `code` comes back normalized
 //      lock.state                    → { locked, ...model-specific details }
 //      lock.input(id, action)        one raw input, exactly as if a finger did it
@@ -28,7 +30,7 @@
 //
 // Each lock's rules live in a DOM-free class (runs in Node) that LockElement drives:
 //      Rules.info   Rules.validateCode(raw)   new Rules(code)
-//      rules.code   rules.setCode(raw)   rules.state   rules.reset()
+//      rules.code   rules.setCode(raw)   rules.setCodeCheck(fn)   rules.state   rules.reset()
 //      rules.input({ id, kind, action }) → { opened, reason, message } for an open attempt, else null
 
 // Base for every <…-lock> element. A subclass sets `static Rules` (its rules class) and
@@ -69,6 +71,7 @@ class LockElement extends HTMLElement {
   get info() { return this.constructor.Rules.info; }
   get code() { return this._rules.code; }
   set code(value) { this._rules.setCode(value); this._stateChanged(); }
+  set codeCheck(fn) { this._rules.setCodeCheck(fn); this._stateChanged(); }
   get state() { return this._rules.state; }
   validateCode(code) { return this.constructor.Rules.validateCode(code); }
 
