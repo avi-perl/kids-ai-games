@@ -41,12 +41,20 @@
   }
   .custom-note .note { background-image: url(door-blank.jpg); }
 
-  /* Opened: the photo gives way to the message, on a soft green card. */
+  /* Opened: the photo gives way to the message and a share button, on a soft green card. */
   .note.solved {
-    display: grid; place-items: center; padding: 16px; cursor: default;
+    display: grid; place-content: center; justify-items: center; gap: 14px; padding: 16px; cursor: default;
     background: radial-gradient(ellipse at 50% 35%, #2f5240, #1d3428 75%);
     color: #d4f3df;
   }
+  .note .share {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px;
+    border: 1px solid rgba(212, 243, 223, .3); background: rgba(212, 243, 223, .1); color: inherit;
+    font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer;
+    animation: message-in .6s .15s ease-out backwards;
+  }
+  .note .share:hover { background: rgba(212, 243, 223, .18); }
+  .note .share svg { width: 18px; height: 18px; }
   .note .message {
     font: 700 clamp(24px, 7vw, 40px)/1.15 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     text-align: center; overflow-wrap: anywhere; animation: message-in .6s ease-out;

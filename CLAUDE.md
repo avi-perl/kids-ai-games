@@ -48,7 +48,8 @@ kids-game/
       note-text.js         ← prints a Markdown note onto door-blank.jpg: browser lays it out on a hidden stage,
                              then each word is drawn, perspective-warped and inked into the photo's pixels
       door.js              ← page wiring: link payload, red glow on a wrong try; opened = steady green + the
-                             message ("You're in!" or the link's own) in place of the photo; note expand, sound
+                             message ("You're in!" or the link's own) + a Share button (OS share sheet: the photo + link, else link, else copy)
+                             in place of the photo; note expand, sound
       make.js              ← make.html wiring: answer limited to the lock's buttons, preview, link
   CLAUDE.md
 ```
