@@ -32,6 +32,7 @@ kids-game/
   05-keypad-lock/
     index.html        ← The Door: photo of the note (door.jpg) + Lockey 2930 lock, code 2367 (HTML + CSS + <script> imports)
                          ?<payload> (or /?<payload> on the hub) sets its own code + note text instead (see note-link.js)
+    make.html         ← Make a Door: write a note (Markdown) + answer, live preview on the photo, copy the link
     door.jpg          ← the note with the original handwriting
     door-blank.jpg    ← the same photo, note left blank, for printed text
     js/
@@ -41,8 +42,10 @@ kids-game/
       lockey-2930-lock.js  ← <lockey-2930-lock>: keypad + rules
       sound.js             ← button-click sound + remembered mute
       note-link.js         ← link payload: 2-char code mask + base64url text (no DOM; `node js/note-link.js <code> "<text>"`)
-      note-text.js         ← prints text onto door-blank.jpg: Times, perspective-warped, inked into the photo's pixels
+      note-text.js         ← prints a Markdown note onto door-blank.jpg: browser lays it out on a hidden stage,
+                             then each word is drawn, perspective-warped and inked into the photo's pixels
       door.js              ← page wiring: link payload, green/red glow, note expand, sound button
+      make.js              ← make.html wiring: answer limited to the lock's buttons, preview, link
   CLAUDE.md
 ```
 When adding a new game, create a new subfolder (e.g. `word-blast/index.html`) and add a card to the root `index.html` grid.

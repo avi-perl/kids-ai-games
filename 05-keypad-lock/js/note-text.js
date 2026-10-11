@@ -1,6 +1,6 @@
-// Note text — prints words onto the blank note in the door photo (door-blank.jpg).
-// The words are laid out flat in Times, bent onto the paper with a perspective map and inked into
-// the photo's own pixels, so they zoom, blur and grain exactly like the rest of the picture.
+// Note text — prints a note (a little Markdown) onto the blank note in the door photo (door-blank.jpg).
+// The note is laid out flat in Times, bent onto the paper with a perspective map and inked into
+// the photo's own pixels, so it zooms, blurs and grains exactly like the rest of the picture.
 const NoteText = (() => {
   // The paper's corners in the photo, in its pixels: top-left, top-right, bottom-right, bottom-left.
   const PAPER = [[276, 557.5], [785, 576.5], [796.5, 842.5], [310, 865]];
@@ -80,51 +80,245 @@ const NoteText = (() => {
     return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
   }
 
-  // --- Layout -----------------------------------------------------------------------------------
+  // --- Markdown ---------------------------------------------------------------------------------
+  // The note is a small Markdown: # ## ### headings, - * + or 1. lists, > quotes, --- rules, blank
+  // lines between paragraphs and a plain newline for a line break; **bold**, *italic*, ***both***,
+  // ~~struck~~, `typed`, and a backslash to escape. It becomes DOM nodes, never HTML, because the
+  // text comes from a link.
 
-  // Greedy word wrap of each paragraph to `width`.
-  function wrap(ctx, paras, width) {
-    const lines = [];
-    for (const words of paras) {
-      let line = '';
-      for (const w of words) {
-        const next = line ? line + ' ' + w : w;
-        if (line && ctx.measureText(next).width > width) { lines.push(line); line = w; }
-        else line = next;
+  const ESCAPABLE = '\\`*_~#>+-.!';
+  const PUA = 0xe000; // escaped characters wait here, out of the markup's way, until drawn
+  const HIDDEN = new RegExp(`[${String.fromCharCode(PUA)}-${String.fromCharCode(PUA + ESCAPABLE.length - 1)}]`, 'g');
+  const hide = s => s.replace(/\\([\\`*_~#>+\-.!])/g, (_, c) => String.fromCharCode(PUA + ESCAPABLE.indexOf(c)));
+  const show = s => s.replace(HIDDEN, c => ESCAPABLE[c.charCodeAt(0) - PUA]);
+
+  function parseBlocks(md) {
+    const blocks = [];
+    let para = null, list = null, quote = null;
+    for (const line of hide(String(md)).replace(/\r\n?/g, '\n').split('\n')) {
+      let m;
+      if (!line.trim()) {
+        para = list = quote = null;
+      } else if ((m = /^\s*(#{1,3})\s+(.*?)(\s+#+)?\s*$/.exec(line))) {
+        para = list = quote = null;
+        blocks.push({ type: 'h' + m[1].length, text: m[2] });
+      } else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+        para = list = quote = null;
+        blocks.push({ type: 'hr' });
+      } else if ((m = /^\s*([-*+]|\d{1,3}[.)])\s+(.*)$/.exec(line))) {
+        const ordered = /\d/.test(m[1]);
+        if (!list || list.ordered !== ordered) blocks.push(list = { type: 'list', ordered, start: parseInt(m[1], 10) || 1, items: [] });
+        list.items.push(m[2]);
+        para = quote = null;
+      } else if ((m = /^\s*>\s?(.*)$/.exec(line))) {
+        if (quote) quote.text += '\n' + m[1];
+        else blocks.push(quote = { type: 'quote', text: m[1] });
+        para = list = null;
+      } else if (list && /^\s/.test(line)) {
+        list.items[list.items.length - 1] += '\n' + line.trim(); // an indented line carries on the item
+      } else if (para) {
+        para.text += '\n' + line.trim();
+      } else {
+        blocks.push(para = { type: 'p', text: line.trim() });
+        list = quote = null;
       }
-      lines.push(line);
     }
-    return lines;
+    return blocks;
   }
 
-  // The biggest letter size at which the text fits the paper, and its lines, evened out in length.
-  function layout(ctx, text, o) {
+  // Inline marks, tried together; the earliest wins, and on a tie the first listed.
+  const INLINE = [
+    [/`([^`]+)`/, ['code']],
+    [/\*\*\*(?=\S)([^]*?\S)\*\*\*/, ['b', 'i']],
+    [/\*\*(?=\S)([^]*?\S)\*\*/, ['b']],
+    [/(?<!\w)__(?=\S)([^]*?\S)__(?!\w)/, ['b']],
+    [/\*(?=\S)([^*]*?\S)\*/, ['i']],
+    [/(?<!\w)_(?=\S)([^_]*?\S)_(?!\w)/, ['i']],
+    [/~~(?=\S)([^]*?\S)~~/, ['s']],
+  ];
+
+  function addText(parent, text) {
+    text.split('\n').forEach((t, i) => {
+      if (i) parent.append(document.createElement('br'));
+      if (t) parent.append(show(t));
+    });
+  }
+
+  function inline(parent, text) {
+    while (text) {
+      let best = null;
+      for (const [re, tags] of INLINE) {
+        const m = re.exec(text);
+        if (m && (!best || m.index < best.m.index)) best = { m, tags };
+      }
+      if (!best) return addText(parent, text);
+      const { m, tags } = best;
+      addText(parent, text.slice(0, m.index));
+      let inner = parent;
+      for (const tag of tags) inner = inner.appendChild(document.createElement(tag));
+      if (tags[0] === 'code') addText(inner, m[1]);
+      else inline(inner, m[1]);
+      text = text.slice(m.index + m[0].length);
+    }
+  }
+
+  function buildDoc(blocks) {
+    const doc = document.createElement('div');
+    doc.className = 'doc';
+    for (const b of blocks) {
+      if (b.type === 'hr') {
+        doc.append(document.createElement('hr'));
+      } else if (b.type === 'list') {
+        const list = doc.appendChild(document.createElement('div'));
+        list.className = 'list';
+        b.items.forEach((item, i) => {
+          const li = list.appendChild(document.createElement('div'));
+          li.className = 'li';
+          li.dir = 'auto';
+          const mark = li.appendChild(document.createElement('span'));
+          mark.className = 'mark';
+          mark.textContent = b.ordered ? `${b.start + i}.` : '•';
+          inline(li, item);
+        });
+      } else {
+        const el = doc.appendChild(document.createElement(b.type === 'quote' ? 'blockquote' : b.type));
+        el.dir = 'auto';
+        inline(el, b.text);
+      }
+    }
+    return doc;
+  }
+
+  // --- Layout -----------------------------------------------------------------------------------
+  // The browser lays the note out (wrapping, fonts, lists, right-to-left) on a hidden stage the
+  // size of the flat paper; then every word is drawn onto the canvas where the browser put it.
+
+  const stageCss = o => `
+    :host { all: initial; }
+    .doc { display: flow-root; font-family: ${o.font}; line-height: ${o.lineHeight}; color: #000; text-align: start; }
+    .doc.center { text-align: center; }
+    .doc > * { margin: 0 0 .4em; }
+    .doc > :last-child { margin-bottom: 0; }
+    h1, h2, h3 { font-weight: bold; line-height: 1.1; text-align: center; text-wrap: balance; }
+    h1 { font-size: 1.6em; }
+    h2 { font-size: 1.3em; }
+    h3 { font-size: 1.12em; }
+    p, .li, blockquote { text-wrap: pretty; }
+    .center p { text-wrap: balance; }
+    blockquote { margin-inline-start: 1.2em; font-style: italic; }
+    code { font-family: "Courier New", Courier, monospace; }
+    hr { border: 0; height: .07em; background: #000; margin: .5em 0; }
+    .li { position: relative; padding-inline-start: 1.3em; }
+    .li + .li { margin-top: .15em; }
+    .mark { position: absolute; inset-inline-start: 0; }`;
+
+  let host;
+  function stage(o) {
+    if (!host) {
+      host = document.createElement('div');
+      host.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden;pointer-events:none';
+      host.attachShadow({ mode: 'open' });
+    }
+    if (!host.isConnected) document.body.append(host);
+    host.shadowRoot.innerHTML = `<style>${stageCss(o)}</style>`; // our own CSS only, no note text
+    return host.shadowRoot;
+  }
+
+  function* textNodes(root) {
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) yield walk.currentNode;
+  }
+
+  // How many lines the laid-out note takes (line pieces whose middles sit within half a letter).
+  function countLines(doc, size) {
+    const mids = [], range = document.createRange();
+    for (const node of textNodes(doc)) {
+      range.selectNodeContents(node);
+      for (const r of range.getClientRects()) if (r.width) mids.push(r.top + r.height / 2);
+    }
+    mids.sort((a, b) => a - b);
+    return mids.filter((y, i) => !i || y - mids[i - 1] > size / 2).length;
+  }
+
+  // Every word (or line) to draw, with its font and where the browser put it.
+  function collect(doc) {
+    const ops = [], range = document.createRange();
+    const probe = document.createElement('canvas').getContext('2d');
+    const o = doc.getBoundingClientRect();
+    for (const node of textNodes(doc)) {
+      const cs = getComputedStyle(node.parentElement);
+      const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const size = parseFloat(cs.fontSize);
+      probe.font = font;
+      const ascent = probe.measureText('').fontBoundingBoxAscent ?? size * 0.89;
+      const rtl = cs.direction === 'rtl';
+      const put = (text, r) => ops.push({ text, font, rtl, x: r.left - o.left, y: r.top - o.top + ascent, w: r.width, top: r.top - o.top, h: r.height });
+      for (const m of node.data.matchAll(/\S+/g)) {
+        range.setStart(node, m.index);
+        range.setEnd(node, m.index + m[0].length);
+        const rects = [...range.getClientRects()].filter(r => r.width);
+        if (rects.length === 1) { put(m[0], rects[0]); continue; }
+        for (let i = 0; i < m[0].length; i++) { // the word broke across lines: letter by letter
+          range.setStart(node, m.index + i);
+          range.setEnd(node, m.index + i + 1);
+          const r = range.getClientRects()[0];
+          if (r && r.width) put(m[0][i], r);
+        }
+      }
+      if (node.parentElement.closest('s')) {
+        range.selectNodeContents(node);
+        for (const r of range.getClientRects()) {
+          if (r.width) ops.push({ line: true, x: r.left - o.left, y: r.top - o.top + ascent - size * 0.3, w: r.width, t: size * 0.06 });
+        }
+      }
+    }
+    for (const hr of doc.querySelectorAll('hr')) {
+      const r = hr.getBoundingClientRect();
+      ops.push({ line: true, x: r.left - o.left, y: r.top - o.top + r.height / 2, w: r.width, t: Math.max(r.height, 0.8) });
+    }
+    return ops;
+  }
+
+  // The biggest letter size at which the note fits the paper, its column narrowed as far as it
+  // goes without adding a line (so no word is left alone), and what to draw.
+  function layout(text, o) {
+    const root = stage(o);
+    const blocks = parseBlocks(text);
+    const doc = root.appendChild(buildDoc(blocks));
     const boxW = FLAT_W * (1 - 2 * o.margin[0]), boxH = FLAT_H * (1 - 2 * o.margin[1]);
-    const paras = String(text).split('\n').map(p => p.trim().split(/\s+/));
-    let size = o.maxSize, lines;
-    for (; size > o.minSize; size--) {
-      ctx.font = `${size}px ${o.font}`;
-      lines = wrap(ctx, paras, boxW);
-      const fitsWide = lines.every(l => ctx.measureText(l).width <= boxW);
-      if (fitsWide && lines.length * size * o.lineHeight <= boxH) break;
+    const set = (size, width) => { doc.style.fontSize = `${size}px`; doc.style.width = `${width}px`; };
+    const fits = width => doc.getBoundingClientRect().height <= boxH && doc.scrollWidth <= Math.ceil(width);
+
+    let lo = o.minSize, hi = o.maxSize;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      set(mid, boxW);
+      if (fits(boxW)) lo = mid; else hi = mid - 1;
     }
-    ctx.font = `${size}px ${o.font}`;
-    lines = wrap(ctx, paras, boxW);
-    // Narrow the wrap width as far as it goes without adding a line, so no word is left alone.
-    let lo = boxW * 0.3, hi = boxW;
-    for (let i = 0; i < 12; i++) {
-      const mid = (lo + hi) / 2;
-      if (wrap(ctx, paras, mid).length <= lines.length) hi = mid; else lo = mid;
+    const size = lo;
+    set(size, boxW);
+    // A few lines are centred, like a sign; anything longer is flush to its start side, like a letter.
+    const lines = countLines(doc, size);
+    doc.classList.toggle('center', lines <= 3 && blocks.every(b => b.type === 'p' || b.type[0] === 'h'));
+
+    let a = boxW * 0.3, z = boxW;
+    for (let i = 0; i < 10; i++) {
+      const mid = (a + z) / 2;
+      set(size, mid);
+      if (fits(mid) && countLines(doc, size) <= lines) z = mid; else a = mid;
     }
-    return { size, lines: wrap(ctx, paras, hi) };
+    set(size, z);
+    const ops = collect(doc);
+    doc.remove();
+    return { size, lines, ops };
   }
 
-  // The text drawn flat on a transparent sheet, SS times finer than the photo. Returns its alpha.
+  // The note drawn flat on a transparent sheet, SS times finer than the photo. Returns its alpha.
   function flatInk(text, o) {
     const cv = document.createElement('canvas');
     cv.width = FLAT_W * SS; cv.height = FLAT_H * SS;
     const ctx = cv.getContext('2d');
-    const { size, lines } = layout(ctx, text, o);
+    const { size, lines, ops } = layout(text, o);
     ctx.scale(SS, SS);
     // Printed a little crooked and off-centre, the same way every time for the same text.
     let h = o.seed;
@@ -138,23 +332,23 @@ const NoteText = (() => {
       for (let x = 0; x <= FLAT_W; x += 25) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, FLAT_H); ctx.stroke(); }
       for (let y = 0; y <= FLAT_H; y += 25) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(FLAT_W, y); ctx.stroke(); }
     }
-    ctx.font = `${size}px ${o.font}`;
-    const rtl = /[\u0590-\u06ff]/.test(text);
-    ctx.direction = rtl ? 'rtl' : 'ltr';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#000';
-    // A few lines are centred, like a sign; a paragraph is flush to its start side, like a letter,
-    // with the block as a whole centred on the paper.
-    let x = FLAT_W / 2;
-    if (lines.length > 3) {
-      const half = Math.max(...lines.map(l => ctx.measureText(l).width)) / 2;
-      x += rtl ? half : -half;
-      ctx.textAlign = 'start';
-    } else {
-      ctx.textAlign = 'center';
+    // The printed block, centred on the paper.
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const op of ops) {
+      const top = op.line ? op.y - op.t / 2 : op.top, bottom = op.line ? op.y + op.t / 2 : op.top + op.h;
+      x0 = Math.min(x0, op.x); x1 = Math.max(x1, op.x + op.w);
+      y0 = Math.min(y0, top); y1 = Math.max(y1, bottom);
     }
-    const lh = size * o.lineHeight, cy = FLAT_H / 2 - lh * 0.04;
-    lines.forEach((l, i) => ctx.fillText(l, x, cy + (i - (lines.length - 1) / 2) * lh));
+    if (ops.length) ctx.translate(FLAT_W / 2 - (x0 + x1) / 2, FLAT_H / 2 - (y0 + y1) / 2);
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    for (const op of ops) {
+      if (op.line) { ctx.fillRect(op.x, op.y - op.t / 2, op.w, op.t); continue; }
+      ctx.font = op.font;
+      ctx.direction = op.rtl ? 'rtl' : 'ltr';
+      ctx.fillText(op.text, op.x, op.y);
+    }
     const px = ctx.getImageData(0, 0, cv.width, cv.height).data;
     const alpha = new Uint8Array(cv.width * cv.height);
     for (let i = 0; i < alpha.length; i++) alpha[i] = px[i * 4 + 3];
@@ -209,7 +403,9 @@ const NoteText = (() => {
   // Paint `text` onto the note in `img` (the loaded blank photo). Returns a canvas the photo's size.
   async function paint(img, text, options = {}) {
     const o = { ...DEFAULTS, ...options };
-    if (document.fonts) await document.fonts.load(`${o.maxSize}px ${o.font}`, text);
+    if (document.fonts) {
+      await Promise.all(['', 'bold ', 'italic ', 'italic bold '].map(v => document.fonts.load(`${v}${o.maxSize}px ${o.font}`, text)));
+    }
 
     const W = img.naturalWidth, H = img.naturalHeight;
     const out = document.createElement('canvas');
@@ -282,5 +478,13 @@ const NoteText = (() => {
     return URL.createObjectURL(blob);
   }
 
-  return { PAPER, FLAT_W, FLAT_H, DEFAULTS, homography, paint, paintURL };
+  // The note's words without the Markdown marks, e.g. for a screen reader.
+  const words = node => node.nodeType === Node.TEXT_NODE ? node.data
+    : node.nodeName === 'BR' ? ' '
+    : node.classList.contains('mark') ? ''
+    : [...node.childNodes].map(words).join('');
+  const plain = text => [...buildDoc(parseBlocks(text)).querySelectorAll('h1, h2, h3, p, blockquote, .li')]
+    .map(el => words(el).trim()).join(' ');
+
+  return { PAPER, FLAT_W, FLAT_H, DEFAULTS, homography, paint, paintURL, plain };
 })();

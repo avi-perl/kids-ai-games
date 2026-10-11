@@ -9,7 +9,7 @@ const soundBtn = document.getElementById('sound');
 NoteLink.decode(location.search.slice(1)).then(custom => {
   if (!custom) return document.documentElement.classList.remove('custom-note'); // not one of ours: the usual note
   lock.setAttribute('code', custom.code);
-  note.setAttribute('aria-label', `Note on the door: ${custom.text}`);
+  note.setAttribute('aria-label', `Note on the door: ${NoteText.plain(custom.text)}`);
   const blank = new Image();
   blank.onload = async () => { note.style.backgroundImage = `url(${await NoteText.paintURL(blank, custom.text)})`; };
   blank.src = 'door-blank.jpg';

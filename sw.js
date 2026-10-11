@@ -1,4 +1,4 @@
-const CACHE = 'fun-games-v15';
+const CACHE = 'fun-games-v16';
 
 const PRECACHE = [
   './',
@@ -23,6 +23,7 @@ const PRECACHE = [
   './04-times-sprint/js/screens.js',
   './05-keypad-lock/',
   './05-keypad-lock/index.html',
+  './05-keypad-lock/make.html',
   './05-keypad-lock/door.jpg',
   './05-keypad-lock/door-blank.jpg',
   './05-keypad-lock/js/lock-contract.js',
@@ -33,6 +34,7 @@ const PRECACHE = [
   './05-keypad-lock/js/note-link.js',
   './05-keypad-lock/js/note-text.js',
   './05-keypad-lock/js/door.js',
+  './05-keypad-lock/js/make.js',
 ];
 
 self.addEventListener('install', e => {
