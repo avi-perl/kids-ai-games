@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fun Games</title>
+<script>
+  // A door link (/?<payload>, see 05-keypad-lock/js/note-link.js) goes straight to The Door.
+  if (location.search.length > 1) location.replace('./05-keypad-lock/' + location.search);
+</script>
 <meta name="description" content="A collection of fun browser games for kids">
 <meta name="theme-color" content="#4a90d9">
 <meta name="mobile-web-app-capable" content="yes">

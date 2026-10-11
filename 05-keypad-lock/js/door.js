@@ -5,6 +5,16 @@ const lock = document.getElementById('lock');
 const note = document.getElementById('note');
 const soundBtn = document.getElementById('sound');
 
+// A link can set the code and print its own words on the note (?…, see note-link.js).
+NoteLink.decode(location.search.slice(1)).then(custom => {
+  if (!custom) return document.documentElement.classList.remove('custom-note'); // not one of ours: the usual note
+  lock.setAttribute('code', custom.code);
+  note.setAttribute('aria-label', `Note on the door: ${custom.text}`);
+  const blank = new Image();
+  blank.onload = async () => { note.style.backgroundImage = `url(${await NoteText.paintURL(blank, custom.text)})`; };
+  blank.src = 'door-blank.jpg';
+});
+
 // Every button press clicks.
 lock.addEventListener('lock-input', e => {
   if (e.detail.action === 'down') Sound.click();

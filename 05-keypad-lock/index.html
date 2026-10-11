@@ -6,6 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1b1a19">
 <title>The Door</title>
+<script>
+  // A link with its own code and note (?…, see js/note-link.js) starts on the blank note, so the
+  // handwritten one never flashes up before the new words are printed on it.
+  if (location.search.length > 1) document.documentElement.classList.add('custom-note');
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -19,14 +24,14 @@
     padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   }
 
-  /* The photo: zoomed in on the note; tap to grow it to the whole picture, tap again to shrink. */
+  /* The photo: a full-width strip across the note; tap to grow it to the whole picture, tap again to shrink. */
   .note {
     --w: min(100vw - 32px, 460px);
     --full-h: min(var(--w) * 1448 / 1086, 72dvh);
     flex: none; width: var(--w); height: calc(var(--w) / 2);
     border: 0; border-radius: 14px; cursor: zoom-in;
     background: #8d9094 url(door.jpg) no-repeat;
-    background-size: 160% auto; background-position: 50% 47%;
+    background-size: 100% auto; background-position: 50% 48.5%;
     box-shadow: 0 8px 24px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 255, 255, .08);
     transition: width .35s ease, height .35s ease, background-size .35s ease, background-position .35s ease;
   }
@@ -34,6 +39,7 @@
     width: calc(var(--full-h) * 1086 / 1448); height: var(--full-h);
     background-size: 100% auto; background-position: 50% 50%; cursor: zoom-out;
   }
+  .custom-note .note { background-image: url(door-blank.jpg); }
 
   /* The lock fills whatever space is left, keeping its shape. */
   .lock-wrap { flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
@@ -88,6 +94,8 @@
   <script src="js/lockey-2930-keypad.js"></script>
   <script src="js/lockey-2930-lock.js"></script>
   <script src="js/sound.js"></script>
+  <script src="js/note-link.js"></script>
+  <script src="js/note-text.js"></script>
   <script src="js/door.js"></script>
 </body>
 </html>

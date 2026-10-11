@@ -1,4 +1,4 @@
-const CACHE = 'fun-games-v13';
+const CACHE = 'fun-games-v15';
 
 const PRECACHE = [
   './',
@@ -24,11 +24,14 @@ const PRECACHE = [
   './05-keypad-lock/',
   './05-keypad-lock/index.html',
   './05-keypad-lock/door.jpg',
+  './05-keypad-lock/door-blank.jpg',
   './05-keypad-lock/js/lock-contract.js',
   './05-keypad-lock/js/lockey-2930-rules.js',
   './05-keypad-lock/js/lockey-2930-keypad.js',
   './05-keypad-lock/js/lockey-2930-lock.js',
   './05-keypad-lock/js/sound.js',
+  './05-keypad-lock/js/note-link.js',
+  './05-keypad-lock/js/note-text.js',
   './05-keypad-lock/js/door.js',
 ];
 

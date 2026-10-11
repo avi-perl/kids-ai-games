@@ -3,7 +3,8 @@
 ## Project structure
 ```
 kids-game/
-  index.html          ← homepage / game hub (neal.fun-inspired grid of game cards)
+  index.html          ← homepage / game hub (neal.fun-inspired grid of game cards); /?<payload> redirects to The Door
+  sw.js               ← service worker: precache list + cache version (bump it and list new files when a game changes)
   01-hill-jumper/
     index.html        ← Hill Jumper game (HTML + CSS + <script> imports only)
     js/
@@ -30,14 +31,18 @@ kids-game/
       screens.js      ← menu, player picker/editor, boot
   05-keypad-lock/
     index.html        ← The Door: photo of the note (door.jpg) + Lockey 2930 lock, code 2367 (HTML + CSS + <script> imports)
-    door.jpg
+                         ?<payload> (or /?<payload> on the hub) sets its own code + note text instead (see note-link.js)
+    door.jpg          ← the note with the original handwriting
+    door-blank.jpg    ← the same photo, note left blank, for printed text
     js/
       lock-contract.js     ← lock contract docs + LockElement base class
       lockey-2930-rules.js ← Lockey 2930 rules (no DOM; runs in Node)
       lockey-2930-keypad.js← <lockey-2930-keypad> SVG input surface (raw down/up/turn only)
       lockey-2930-lock.js  ← <lockey-2930-lock>: keypad + rules
       sound.js             ← button-click sound + remembered mute
-      door.js              ← page wiring: green/red glow, note expand, sound button
+      note-link.js         ← link payload: 2-char code mask + base64url text (no DOM; `node js/note-link.js <code> "<text>"`)
+      note-text.js         ← prints text onto door-blank.jpg: Times, perspective-warped, inked into the photo's pixels
+      door.js              ← page wiring: link payload, green/red glow, note expand, sound button
   CLAUDE.md
 ```
 When adding a new game, create a new subfolder (e.g. `word-blast/index.html`) and add a card to the root `index.html` grid.
