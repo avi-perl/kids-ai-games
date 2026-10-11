@@ -41,6 +41,17 @@
   }
   .custom-note .note { background-image: url(door-blank.jpg); }
 
+  /* The photo with a share button under its bottom-right corner (until it opens: then the button
+     moves into the message card). */
+  .photo { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .share-door {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px; border: 0; background: none;
+    color: rgba(255, 255, 255, .6); font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    cursor: pointer;
+  }
+  .share-door:hover { color: #fff; }
+  .share-door svg { width: 20px; height: 20px; }
+
   /* Opened: the photo gives way to the message and a share button, on a soft green card. */
   .note.solved {
     display: grid; place-content: center; justify-items: center; gap: 14px; padding: 16px; cursor: default;
@@ -106,7 +117,12 @@
 </head>
 <body>
   <main>
-    <button class="note" id="note" type="button" aria-label="Note on the door" aria-expanded="false"></button>
+    <div class="photo">
+      <button class="note" id="note" type="button" aria-label="Note on the door" aria-expanded="false"></button>
+      <button class="share-door" id="share" type="button" aria-label="Share">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+      </button>
+    </div>
     <div class="lock-wrap">
       <lockey-2930-lock id="lock" code="2367"></lockey-2930-lock>
     </div>

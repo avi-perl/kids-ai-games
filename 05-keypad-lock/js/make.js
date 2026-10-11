@@ -86,6 +86,6 @@ try {
 } catch {}
 // The usual message, unless they write their own (which then rides along in the link).
 messageIn.placeholder = NoteLink.MESSAGE;
-document.getElementById('message-hint').textContent = `Leave empty for “${NoteLink.MESSAGE}”`;
+document.getElementById('message-hint').textContent = `Hidden until the door opens. Leave empty for “${NoteLink.MESSAGE}”`;
 makeLink();
 paint();

@@ -43,13 +43,15 @@ kids-game/
       lockey-2930-keypad.js← <lockey-2930-keypad> SVG input surface (raw down/up/turn only)
       lockey-2930-lock.js  ← <lockey-2930-lock>: keypad + rules
       sound.js             ← button-click sound + remembered mute
-      note-link.js         ← link payload: 2-char salted hash of note + code (never the code) + base64url text
+      note-link.js         ← link payload: 2-char salted hash of note + code (never the code) + base64url text,
+                             the optional reward message sealed (XOR keystream) with the code
                              (no DOM; `node js/note-link.js <code> "<text>"`)
       note-text.js         ← prints a Markdown note onto door-blank.jpg: browser lays it out on a hidden stage,
                              then each word is drawn, perspective-warped and inked into the photo's pixels
       door.js              ← page wiring: link payload, red glow on a wrong try; opened = steady green + the
-                             message ("You're in!" or the link's own) + a Share button (OS share sheet: the photo + link, else link, else copy)
-                             in place of the photo; note expand, sound
+                             message ("You're in!" or the link's own, unsealed by the code) in place of the photo;
+                             Share (under the photo, then in the card): the photo + "Can you open this door?" + link
+                             via the OS share sheet, else words + link, else copy; note expand, sound
       make.js              ← make.html wiring: answer limited to the lock's buttons, preview, link
   CLAUDE.md
 ```

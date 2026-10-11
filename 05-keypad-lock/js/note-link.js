@@ -6,9 +6,11 @@
 //   try also matches about 1 time in 4096, which is fine for a game).
 //   Links from before the hash put the payload after "?" instead, and their 2 characters are the
 //   code itself: a 12-bit mask of the buttons 1–9, 0, X, Z. Those still work.
-// • text: the note, then — only if it isn't the usual "You're in!" — a record separator (U+001E)
-//   and the message to show once the door opens.
-//   As base64url of the text's bytes, unpadded. Windows-1255 when every character is in it
+// • text: the note, then — only if it isn't the usual "You're in!" — a unit separator (byte 0x1F)
+//   and the message to show once the door opens, sealed with the code: XORed with a keystream made
+//   from the salt, the note and the code, so it stays hidden until the right code is in. Same length.
+//   (Older links put a record separator, 0x1E, and the message in plain text. Those still work.)
+//   As base64url of the bytes, unpadded. Windows-1255 when every character is in it
 //   (Hebrew then takes one byte a letter instead of two), else UTF-8. Those Windows-1255 bytes are
 //   only used when they aren't also valid UTF-8, so the reader can tell which it got.
 // • ~: the text bytes are raw-deflated first. Only used when that's shorter (longer texts).
@@ -18,7 +20,8 @@ const NoteLink = (() => {
   const BUTTONS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'X', 'Z'];
   const SALT = 'lockey-2930';
   const MESSAGE = "You're in!"; // shown once the door opens, unless the link brings its own
-  const RS = String.fromCharCode(0x1e); // between the note and its own message
+  const RS = 0x1e, US = 0x1f; // between the note and its message: plain (older links), sealed
+  const strip = text => [RS, US].reduce((t, c) => t.split(String.fromCharCode(c)).join(''), String(text));
   const cp1255 = new TextDecoder('windows-1255');
   let byteOf; // character → its Windows-1255 byte, built on first use
 
@@ -72,18 +75,43 @@ const NoteLink = (() => {
     return (h ^ (h >>> 12) ^ (h >>> 24)) & 0xfff;
   }
 
+  const textOf = bytes => (isUtf8(bytes) ? new TextDecoder().decode(bytes) : cp1255.decode(bytes));
+
+  // Bytes to XOR a message with: xorshift32, seeded by FNV-1a over the salt, the note and the code.
+  // The same code seals and unseals; any other gives noise.
+  function keystream(note, code, n) {
+    const s = SALT + String.fromCharCode(1) + note + String.fromCharCode(1) + normalize(code);
+    let x = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 0x01000193);
+    x ||= 1;
+    const out = new Uint8Array(n);
+    for (let i = 0; i < n; i++) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; out[i] = x >>> 24; }
+    return out;
+  }
+  const xor = (bytes, key) => bytes.map((b, i) => b ^ key[i]);
+
+  // The message a sealed one unseals to with this code, or null if the code doesn't fit (noise).
+  function unseal(note, code, sealed) {
+    const text = textOf(xor(sealed, keystream(note, code, sealed.length)));
+    return [...text].some(c => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 0xfffd) ? null : text;
+  }
+
   // { code: '2367', text: '…', message: '…' } → (a promise of) the string that goes after the "#".
   async function encode({ code, text, message = '' }) {
-    const note = String(text).split(RS).join('');
-    message = String(message).split(RS).join('').trim();
+    const note = strip(text);
+    message = strip(message).trim();
     const sum = check(note, code);
     const head = B64[sum >> 6] + B64[sum & 63];
-    const bytes = textBytes(message && message !== MESSAGE ? note + RS + message : note);
+    let bytes = textBytes(note);
+    if (message && message !== MESSAGE) {
+      const m = textBytes(message);
+      bytes = Uint8Array.from([...bytes, US, ...xor(m, keystream(note, code, m.length))]);
+    }
     const plain = head + toB64(bytes), packed = '~' + head + toB64(await squeeze(bytes, CompressionStream));
     return packed.length < plain.length ? packed : plain;
   }
 
-  // A payload → (a promise of) { head: its 12-bit head, text }, or null if it isn't one of ours.
+  // A payload → (a promise of) { head: its 12-bit head, bytes }, or null if it isn't one of ours.
   async function decode(s) {
     try {
       s = decodeURIComponent(s); // in case something on the way escaped the ~
@@ -93,24 +121,33 @@ const NoteLink = (() => {
       const sum = (B64.indexOf(s[0]) << 6) | B64.indexOf(s[1]);
       let bytes = fromB64(s.slice(2));
       if (packed) bytes = await squeeze(bytes, DecompressionStream);
-      return {
-        head: sum,
-        text: isUtf8(bytes) ? new TextDecoder().decode(bytes) : cp1255.decode(bytes),
-      };
+      return { head: sum, bytes };
     } catch {
       return null;
     }
   }
 
   // A page address (location, or a URL) → (a promise of) the door it describes, or null:
-  //   { text, message, opens(code) }  for links after "#": tries are checked against the hash
-  //   { text, message, code }         for old links after "?": the code itself
+  //   { text, message(code), opens(code) }  for links after "#": tries are checked against the hash
+  //   { text, message(code), code }         for old links after "?": the code itself
+  // message(code) is what to show once that code has opened it.
   async function read({ hash, search }) {
     const link = await decode((hash.length > 1 ? hash : search).slice(1));
     if (!link) return null;
-    const [text, message = MESSAGE] = link.text.split(RS);
-    if (hash.length > 1) return { text, message, opens: code => check(text, code) === link.head };
-    return { text, message, code: BUTTONS.filter((_, i) => link.head & (1 << i)).join('') };
+    const { head, bytes } = link;
+    const cut = bytes.findIndex(b => b === RS || b === US);
+    let text, message;
+    if (cut >= 0 && bytes[cut] === US) {
+      text = textOf(bytes.subarray(0, cut));
+      const sealed = bytes.subarray(cut + 1);
+      message = code => unseal(text, code, sealed) ?? MESSAGE;
+    } else {
+      const [note, plain = MESSAGE] = textOf(bytes).split(String.fromCharCode(RS));
+      text = note;
+      message = () => plain;
+    }
+    if (hash.length > 1) return { text, message, opens: code => check(text, code) === head };
+    return { text, message, code: BUTTONS.filter((_, i) => head & (1 << i)).join('') };
   }
 
   return { MESSAGE, encode, decode, read };

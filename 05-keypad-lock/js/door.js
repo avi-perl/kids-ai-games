@@ -1,22 +1,26 @@
-// The Door — wires the page together: lock feedback, the note photo, the message once it opens
-// and the sound switch.
+// The Door — wires the page together: lock feedback, the note photo, sharing, the message once it
+// opens and the sound switch.
 const WIDE = matchMedia('(min-width: 760px) and (min-aspect-ratio: 1/1)'); // keep in sync with the CSS
 
 const lock = document.getElementById('lock');
 const note = document.getElementById('note');
 const soundBtn = document.getElementById('sound');
-let message = NoteLink.MESSAGE; // shown once it opens
-let photo = 'door.jpg'; // the note's photo (or a promise of it), to share once it opens
+const shareBtn = document.getElementById('share');
+let message = () => NoteLink.MESSAGE; // what to show once a code has opened it
+let openedWith = null; // the code that last passed the lock's check
+let photo = 'door.jpg'; // the note's photo (or a promise of it), to share
+let shareFile = null; // that photo as a file, made ahead so a tap can open the share sheet at once
 let solved = false;
 
 // A link can set the code and print its own words on the note (#… or, from before, ?…; see note-link.js).
 NoteLink.read(location).then(custom => {
   if (!custom) return document.documentElement.classList.remove('custom-note'); // not one of ours: the usual note
   if (custom.opens) {
-    lock.codeCheck = custom.opens; // the link only has a hash of the code
+    // The link only has a hash of the code; the code that passes also unseals the message.
+    lock.codeCheck = code => (custom.opens(code) ? ((openedWith = code), true) : false);
     lock.removeAttribute('code'); // not the usual note's code either
   } else {
-    lock.code = custom.code;
+    lock.code = openedWith = custom.code;
   }
   message = custom.message;
   note.setAttribute('aria-label', `Note on the door: ${NoteText.plain(custom.text)}`);
@@ -30,7 +34,11 @@ NoteLink.read(location).then(custom => {
     blank.onerror = () => done('door-blank.jpg');
     blank.src = 'door-blank.jpg';
   });
-});
+}).then(() => photo).then(src => fetch(src)).then(res => res.blob())
+  .then(blob => { shareFile = new File([blob], 'the-door.jpg', { type: 'image/jpeg' }); })
+  .catch(() => {});
+
+shareBtn.addEventListener('click', () => shareDoor(shareBtn));
 
 // Opening another link while already on the door only changes the part after "#": start over.
 addEventListener('hashchange', () => location.reload());
@@ -61,36 +69,33 @@ const SHARE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 function solve() {
   solved = true;
   lock.classList.add('solved');
-  // The note is a button, and buttons can't hold the share button: a card takes its place.
+  // The note is a button, and buttons can't hold the share button: a card takes its place, and the
+  // share button under the photo moves into it.
   const card = document.createElement('div');
   card.className = 'note solved';
   card.setAttribute('role', 'status');
   const text = card.appendChild(document.createElement('span'));
   text.className = 'message';
-  text.textContent = message;
+  text.textContent = message(openedWith);
   const share = card.appendChild(document.createElement('button'));
   share.className = 'share';
   share.type = 'button';
   share.innerHTML = `${SHARE_ICON}<span>Share</span>`;
-  // The photo is made into a file now, so a tap on Share can open the share sheet at once
-  // (browsers only let a share start right after the tap).
-  let file = null;
-  Promise.resolve(photo).then(src => fetch(src)).then(res => res.blob())
-    .then(blob => { file = new File([blob], 'the-door.jpg', { type: 'image/jpeg' }); })
-    .catch(() => {});
-  share.addEventListener('click', () => shareDoor(share.lastChild, file));
+  share.addEventListener('click', () => shareDoor(share));
   note.replaceWith(card);
+  shareBtn.remove();
 }
 
-// The phone's own share sheet: the note's photo with this door's short link as its text (/#…,
-// which holds only a hash of the code). Without image sharing, just the link; without a share
-// sheet at all, the link is copied.
-async function shareDoor(label, file) {
+// The phone's own share sheet: the note's photo, and "Can you open this door?" with this door's short
+// link (/#…, which holds only a hash of the code). Without image sharing, just the words and link;
+// without a share sheet at all, the link is copied.
+const ASK = 'Can you open this door?';
+async function shareDoor(button) {
   const link = location.hash.length > 1 || location.search.length > 1;
   const url = link ? new URL(`../${location.search}${location.hash}`, location.href).href : location.href;
-  const data = file && navigator.canShare?.({ files: [file] })
-    ? { files: [file], title: 'The Door', text: url }
-    : { title: 'The Door', text: 'Can you open the door?', url };
+  const data = shareFile && navigator.canShare?.({ files: [shareFile] })
+    ? { files: [shareFile], title: 'The Door', text: `${ASK} ${url}` }
+    : { title: 'The Door', text: ASK, url };
   if (navigator.share) {
     try {
       await navigator.share(data);
@@ -101,8 +106,11 @@ async function shareDoor(label, file) {
   }
   try {
     await navigator.clipboard.writeText(url);
+    // Say so on the button: in place of its word, or beside its icon.
+    const label = button.querySelector('span') || button.appendChild(document.createElement('span'));
+    const was = label.textContent;
     label.textContent = 'Link copied';
-    setTimeout(() => (label.textContent = 'Share'), 1800);
+    setTimeout(() => (was ? (label.textContent = was) : label.remove()), 1800);
   } catch {
     prompt('Copy this link:', url);
   }

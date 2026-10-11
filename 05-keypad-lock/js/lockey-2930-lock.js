@@ -4,8 +4,7 @@ class Lockey2930Lock extends LockElement {
   static Rules = Lockey2930Rules;
   static surfaceTag = 'lockey-2930-keypad';
 
-  // The keypad is told which buttons are pushed in (until C, or the knob opening, drops the
-  // tumblers), but draws them like the rest.
+  // Pushed buttons stay visibly in until C (or the knob opening) drops the tumblers.
   showState(state) {
     this._surface?.setPushedIn(state.seated);
   }

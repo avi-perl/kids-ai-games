@@ -4,8 +4,7 @@
 // events and knows none of the lock's rules — <lockey-2930-lock> wraps it with those.
 //   keypad.controls   keypad.down(id)   keypad.up(id)   keypad.tap(id)   keypad.turn('knob')
 //   keypad.spinKnob(turned)   animate the knob turning (true) or catching on the lock (false)
-//   keypad.setPushedIn(ids)   mark these buttons as pushed in (class "in"; the lock passes its seated
-//                             tumblers). They're drawn like the rest, so nobody can see which are in.
+//   keypad.setPushedIn(ids)   show these buttons as staying pushed in (the lock passes its seated tumblers)
 //
 // Size it with CSS `width` on the element; height follows the lock's aspect ratio.
 (() => {
@@ -46,8 +45,15 @@
     .kl-glyph { pointer-events: none; }
     .kl-cap { transition: transform 60ms; }
     .kl-cap-shade { opacity: 0; transition: opacity 60ms; }
-    .kl-key.down .kl-cap { transform: translateY(1.6px); }
-    .kl-key.down .kl-cap-shade { opacity: .12; }
+    .kl-shadow { transition: opacity 60ms; }
+    /* Pushed in, a cap slides toward its base (each key sets how far: --in-*, --down-*), its shadow
+       shrinks and its top darkens a touch; a finger on it pushes a little deeper. */
+    .kl-key.in .kl-cap { transform: translate(var(--in-x), var(--in-y)); }
+    .kl-key.in .kl-cap-shade { opacity: .1; }
+    .kl-key.in .kl-shadow { opacity: .55; }
+    .kl-key.down .kl-cap { transform: translate(var(--down-x), var(--down-y)); }
+    .kl-key.down .kl-cap-shade { opacity: .14; }
+    .kl-key.down .kl-shadow { opacity: .45; }
     .kl-key:focus-visible .kl-cap-ring, .kl-knob:focus-visible .kl-knob-face { stroke: #2f7de1; stroke-width: 2.5; stroke-opacity: 1; }
     .kl-knurl { transform-box: fill-box; transform-origin: 50% 50%; }
     .kl-knob.turned .kl-knurl { animation: kl-turn 650ms ease-in-out; }
@@ -119,8 +125,13 @@
     // The top's centre, and the base's: shifted from the top toward the camera.
     const tx = x + CAP.w / 2, ty = y + CAP.h / 2;
     const bx = tx - CAMERA.k * (tx - CAMERA.x), by = ty - CAMERA.k * (ty - CAMERA.y);
+    // Pushed in, the top slides most of the way to its base (a little further under a finger), and
+    // always moves down at least a bit so even the bottom rows show it.
+    const dx = bx - tx, dy = by - ty;
+    const push = `--in-x:${(dx * .7).toFixed(2)}px;--in-y:${Math.max(dy * .7, .8).toFixed(2)}px;`
+      + `--down-x:${(dx * .85).toFixed(2)}px;--down-y:${Math.max(dy * .85, 1.2).toFixed(2)}px`;
     return `
-      <g class="kl-key" data-key="${key}" role="button" tabindex="0" aria-label="${key}">
+      <g class="kl-key" data-key="${key}" role="button" tabindex="0" aria-label="${key}" style="${push}">
         <rect class="kl-hit" x="${side === 'L' ? 36 : 124}" y="${cy - DY / 2}" width="88" height="${DY}"/>
         <path d="${squircle(bx, by, a + HOLE, b + HOLE)}" fill="url(#${p}hole)"/>
         <clipPath id="${p}lip${key}"><!-- the plate around the hole, not the hole itself -->
@@ -129,8 +140,10 @@
         <g clip-path="url(#${p}lip${key})"><!-- the plate rolling smoothly down into the hole -->
           <path d="${squircle(bx, by, a + HOLE, b + HOLE)}" fill="none" stroke="url(#${p}holeLip)" stroke-width="2" filter="url(#${p}edgeSoft)"/>
         </g>
-        <path d="${squircle(bx + SHADOW.far.dx, by + SHADOW.far.dy, a, b)}" fill="#000" opacity="${SHADOW.far.opacity}" filter="url(#${p}softWide)"/>
-        <path d="${squircle(bx + SHADOW.near.dx, by + SHADOW.near.dy, a, b)}" fill="#000" opacity="${SHADOW.near.opacity}" filter="url(#${p}soft)"/>
+        <g class="kl-shadow">
+          <path d="${squircle(bx + SHADOW.far.dx, by + SHADOW.far.dy, a, b)}" fill="#000" opacity="${SHADOW.far.opacity}" filter="url(#${p}softWide)"/>
+          <path d="${squircle(bx + SHADOW.near.dx, by + SHADOW.near.dy, a, b)}" fill="#000" opacity="${SHADOW.near.opacity}" filter="url(#${p}soft)"/>
+        </g>
         <path d="${squircle(bx, by, a, b)}" fill="url(#${p}capWall)" stroke="#0e0f10" stroke-opacity=".8" stroke-width=".8"/>
         <clipPath id="${p}top${key}"><path d="${squircle(tx, ty, a, b)}"/></clipPath>
         <g class="kl-cap">
