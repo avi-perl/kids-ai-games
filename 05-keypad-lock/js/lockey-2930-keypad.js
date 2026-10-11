@@ -15,11 +15,14 @@
     { id: 'knob', kind: 'knob', label: 'Knob' },
   ];
 
-  // Geometry in the source image's 240×800 space; the viewBox crops the white margins.
-  const VB = '14 84 212 632';
-  const ROW_Y0 = 186, ROW_DY = 43.6;
-  const CAP_W = 33, CAP_H = 23;
-  const KNOB = { cx: 120, cy: 628 };
+  // Geometry measured from a 248×800 product photo of the lock; the viewBox crops its margins.
+  const VB = '16.5 84 212 632';
+  const ROW0 = 186, DY = 43.6;                       // label centre of row 1, row pitch
+  const CAP = { w: 35, h: 25, rx: 10, lift: 4.5 };   // cap centre sits 4.5 above its label's centre
+  const CAP_X = { L: 73.5, R: 140 };
+  const LABEL = { h: 17, leftCentre: 60.5, rightCentre: 186.5, stroke: 2 };
+  const WIDTH = { 1: 9, 2: 19, 3: 20, 4: 21, 5: 20, 6: 19, 7: 20, 8: 19, 9: 19, 0: 20, X: 19, Y: 18, Z: 20, C: 20 };
+  const KNOB = { cx: 125, cy: 617, r: 69 };
   const PRESS_MS = 110;
 
   const CSS = `
@@ -31,7 +34,7 @@
     }
     .kl-key, .kl-knob { cursor: pointer; outline: none; }
     .kl-hit { fill: transparent; }
-    .kl-label { font: 600 23px Arial, Helvetica, sans-serif; fill: #2a2b2d; pointer-events: none; }
+    .kl-glyph { pointer-events: none; }
     .kl-cap { transition: transform 60ms; }
     .kl-cap-shade { opacity: 0; transition: opacity 60ms; }
     .kl-key.down .kl-cap { transform: translateY(1.6px); }
@@ -39,8 +42,8 @@
     .kl-key.down .kl-cap-shade { opacity: .12; }
     .kl-key.in .kl-cap { transform: translateY(2.6px); }
     .kl-key.in .kl-cap-shine { opacity: .15; }
-    .kl-key.in .kl-cap-shade { opacity: .28; }
-    .kl-key:focus-visible .kl-socket, .kl-knob:focus-visible .kl-knob-face { stroke: #2f7de1; stroke-width: 2.5; }
+    .kl-key.in .kl-cap-shade { opacity: .22; }
+    .kl-key:focus-visible .kl-cap-ring, .kl-knob:focus-visible .kl-knob-face { stroke: #2f7de1; stroke-width: 2.5; stroke-opacity: 1; }
     .kl-knurl { transform-box: fill-box; transform-origin: 50% 50%; }
     .kl-knob.turned .kl-knurl { animation: kl-turn 650ms ease-in-out; }
     .kl-knob.caught .kl-knurl { animation: kl-catch 300ms ease-out; }
@@ -50,100 +53,199 @@
 
   let instance = 0;
 
+  // Engraved labels: monoline glyphs in a wide, squared style (like Microgramma Extended),
+  // drawn as stroke centrelines in a W×17 box.
+  function glyph(ch, W) {
+    const s = LABEL.stroke / 2;
+    const a = s, b = W - s, t = s, u = LABEL.h - s, m = LABEL.h / 2, r = 4.4;
+    const box = (x0, y0, x1, y1, rr) =>
+      `M${x0 + rr} ${y0}H${x1 - rr}Q${x1} ${y0} ${x1} ${y0 + rr}V${y1 - rr}Q${x1} ${y1} ${x1 - rr} ${y1}` +
+      `H${x0 + rr}Q${x0} ${y1} ${x0} ${y1 - rr}V${y0 + rr}Q${x0} ${y0} ${x0 + rr} ${y0}Z`;
+    switch (ch) {
+      case '0': return box(a, t, b, u, r);
+      case '1': return `M${a} ${t + 3.6}L${b} ${t}V${u}`;
+      case '2': return `M${a} ${t}H${b - r}Q${b} ${t} ${b} ${t + r}V${m - r}Q${b} ${m} ${b - r} ${m}H${a + r}Q${a} ${m} ${a} ${m + r}V${u}H${b}`;
+      case '3': return `M${a} ${t}H${b - r}Q${b} ${t} ${b} ${t + r}V${u - r}Q${b} ${u} ${b - r} ${u}H${a}M${a + 4} ${m}H${b}`;
+      case '4': return `M${b - 4.5} ${u}V${t}L${a} ${u - 5}H${b}`;
+      case '5': return `M${b} ${t}H${a}V${m}H${b - r}Q${b} ${m} ${b} ${m + r}V${u - r}Q${b} ${u} ${b - r} ${u}H${a}`;
+      case '6': return `M${b} ${t + 1.8}Q${b} ${t} ${b - 1.8} ${t}H${a + r}Q${a} ${t} ${a} ${t + r}V${u - r}Q${a} ${u} ${a + r} ${u}H${b - r}Q${b} ${u} ${b} ${u - r}V${m + r}Q${b} ${m} ${b - r} ${m}H${a}`;
+      case '7': return `M${a} ${t}H${b}L${a + 5} ${u}`;
+      case '8': return box(a + 0.8, t, b - 0.8, m, r * 0.8) + box(a, m, b, u, r * 0.8);
+      case '9': return `M${a} ${u - 1.8}Q${a} ${u} ${a + 1.8} ${u}H${b - r}Q${b} ${u} ${b} ${u - r}V${t + r}Q${b} ${t} ${b - r} ${t}H${a + r}Q${a} ${t} ${a} ${t + r}V${m - r}Q${a} ${m} ${a + r} ${m}H${b}`;
+      case 'X': return `M${a} ${t}L${b} ${u}M${b} ${t}L${a} ${u}`;
+      case 'Y': return `M${a} ${t}L${W / 2} ${m}L${b} ${t}M${W / 2} ${m}V${u}`;
+      case 'Z': return `M${a} ${t}H${b}L${a} ${u}H${b}`;
+      case 'C': return `M${b} ${t}H${a + r}Q${a} ${t} ${a} ${t + r}V${u - r}Q${a} ${u} ${a + r} ${u}H${b}`;
+    }
+  }
+
+  function labelSvg(key, side, cy) {
+    const W = WIDTH[key];
+    const x = (side === 'L' ? LABEL.leftCentre : LABEL.rightCentre) - W / 2;
+    const d = glyph(key, W);
+    return `<g class="kl-glyph" transform="translate(${x} ${cy - LABEL.h / 2})">
+      <path d="${d}" transform="translate(.35 .7)" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.7"/>
+      <path d="${d}" fill="none" stroke="#323437" stroke-width="${LABEL.stroke}"/>
+    </g>`;
+  }
+
+  // A button: shadow and dark side wall stay put; the cap (chrome rim + mottled face) moves when pressed.
   function keySvg(p, key, side, row) {
-    const cy = ROW_Y0 + row * ROW_DY;
-    const left = side === 'L';
-    const capX = left ? 76 : 140;
-    const hitX = left ? 38 : 120;
+    const cy = ROW0 + row * DY;            // label centre
+    const x = CAP_X[side], y = cy - CAP.lift - CAP.h / 2;
+    const fx = x + 2.6, fy = y + 2.2, fw = CAP.w - 5.2, fh = CAP.h - 5.8, frx = CAP.rx - 2.6;
     return `
       <g class="kl-key" data-key="${key}" role="button" tabindex="0" aria-label="${key}">
-        <rect class="kl-hit" x="${hitX}" y="${cy - ROW_DY / 2}" width="82" height="${ROW_DY}"/>
-        <rect class="kl-socket" x="${capX - 3}" y="${cy - CAP_H / 2 - 3}" width="${CAP_W + 6}" height="${CAP_H + 6}" rx="12"
-              fill="url(#${p}socket)" stroke="none"/>
+        <rect class="kl-hit" x="${side === 'L' ? 36 : 124}" y="${cy - DY / 2}" width="88" height="${DY}"/>
+        <rect x="${x + 1.4}" y="${y + 4.2}" width="${CAP.w}" height="${CAP.h}" rx="${CAP.rx}" fill="#000" opacity=".28" filter="url(#${p}soft)"/>
+        <rect x="${x + 0.4}" y="${y + 2}" width="${CAP.w}" height="${CAP.h}" rx="${CAP.rx}" fill="url(#${p}capWall)"/>
         <g class="kl-cap">
-          <rect x="${capX}" y="${cy - CAP_H / 2}" width="${CAP_W}" height="${CAP_H}" rx="10"
-                fill="url(#${p}cap)" stroke="#7a7e83" stroke-width=".8"/>
-          <rect class="kl-cap-shine" x="${capX + 6}" y="${cy - CAP_H / 2 + 3}" width="${CAP_W - 12}" height="6" rx="3"
-                fill="#fff" opacity=".75"/>
-          <rect class="kl-cap-shade" x="${capX}" y="${cy - CAP_H / 2}" width="${CAP_W}" height="${CAP_H}" rx="10" fill="#000"/>
+          <rect class="kl-cap-ring" x="${x}" y="${y}" width="${CAP.w}" height="${CAP.h}" rx="${CAP.rx}" fill="url(#${p}capRing)" stroke="#5f6266" stroke-opacity=".6" stroke-width=".6"/>
+          <rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${frx}" fill="url(#${p}capFace)" stroke="#3e4144" stroke-opacity=".45" stroke-width=".7"/>
+          <rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${frx}" filter="url(#${p}mottle)" opacity=".5"/>
+          <path class="kl-cap-shine" d="M${x + 6} ${y + 3.6}H${x + CAP.w - 6}" stroke="#fff" stroke-opacity=".35" stroke-width=".8" stroke-linecap="round"/>
+          <rect class="kl-cap-shade" x="${x}" y="${y}" width="${CAP.w}" height="${CAP.h}" rx="${CAP.rx}" fill="#000"/>
         </g>
-        <text class="kl-label" x="${left ? 71 : 177}" y="${cy}" dy=".36em" text-anchor="${left ? 'end' : 'start'}">${key}</text>
+        ${labelSvg(key, side, cy)}
       </g>`;
   }
 
+  // The knob's grip ring: four identical lobes (top, right, bottom, left) centred on the face, each
+  // with broad rounded ridges and V-notches — a notch on every lobe's centre line, so each lobe mirrors
+  // itself — and narrow dips between lobes.
+  const GRIP = { base: 71, outer: 82, flat: 30, taper: 6, ridgeDeg: 7.5, depth: 1.6 };  // ridgeDeg divides 90
+  const lobeAt = deg => {
+    const off = Math.abs(((deg + 45) % 90) - 45);   // degrees from the nearest lobe centre
+    return off < GRIP.flat ? 1 : off > GRIP.flat + GRIP.taper ? 0 : 0.5 + 0.5 * Math.cos((off - GRIP.flat) / GRIP.taper * Math.PI);
+  };
+  const gripR = deg => {
+    const lobe = lobeAt(deg);
+    const notch = 1 - Math.abs(Math.sin(deg / GRIP.ridgeDeg * Math.PI));  // 0 on a ridge, 1 in a V-notch
+    return GRIP.base + (GRIP.outer - GRIP.base) * lobe - GRIP.depth * notch * lobe;
+  };
+  const gripPt = (deg, r) => {
+    const th = deg * Math.PI / 180;
+    return `${(KNOB.cx + r * Math.sin(th)).toFixed(2)} ${(KNOB.cy - r * Math.cos(th)).toFixed(2)}`;
+  };
+
+  function gripPath() {
+    const pts = [];
+    for (let deg = 0; deg < 360; deg += 0.5) pts.push(gripPt(deg, gripR(deg)));
+    return `M${pts.join('L')}Z`;
+  }
+
+  // A short groove in from each V-notch, near the outer edge.
+  function gripGrooves() {
+    let d = '';
+    for (let deg = 0; deg < 360; deg += GRIP.ridgeDeg) {
+      if (lobeAt(deg) < 0.8) continue;
+      const r = gripR(deg);
+      d += `M${gripPt(deg, r - 4.5)}L${gripPt(deg, r)}`;
+    }
+    return `<path d="${d}" stroke="#55585c" stroke-opacity=".4" stroke-width=".9"/>`;
+  }
+
   function lockSvg(p) {
-    const { cx, cy } = KNOB;
+    const { cx, cy, r } = KNOB;
+    const grip = gripPath();
     return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${VB}" role="group" aria-label="Combination lock keypad">
   <defs>
-    <linearGradient id="${p}face" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#a9adb2"/>
-      <stop offset=".18" stop-color="#d6d8db"/>
-      <stop offset=".5" stop-color="#eceef0"/>
-      <stop offset=".82" stop-color="#d3d6d9"/>
-      <stop offset="1" stop-color="#a3a7ac"/>
+    <linearGradient id="${p}plateH" x1="35" x2="211" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e2e3e4"/><stop offset=".04" stop-color="#d6d7d8"/>
+      <stop offset=".12" stop-color="#c0c1c2"/><stop offset=".28" stop-color="#afb0b1"/>
+      <stop offset=".37" stop-color="#b6b7b8"/><stop offset=".5" stop-color="#adaeaf"/>
+      <stop offset=".62" stop-color="#a2a3a4"/><stop offset=".72" stop-color="#b2b3b4"/>
+      <stop offset=".86" stop-color="#bbbcbd"/><stop offset=".96" stop-color="#d2d3d4"/>
+      <stop offset="1" stop-color="#dfe0e1"/>
     </linearGradient>
-    <linearGradient id="${p}housing" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0" stop-color="#b9bcc0"/>
-      <stop offset=".5" stop-color="#f1f2f3"/>
-      <stop offset="1" stop-color="#b6b9bd"/>
+    <linearGradient id="${p}plateV" x1="0" x2="0" y1="99" y2="515" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".03" stop-color="#fff" stop-opacity=".6"/>
+      <stop offset=".18" stop-color="#fff" stop-opacity=".25"/><stop offset=".3" stop-color="#fff" stop-opacity=".12"/>
+      <stop offset=".9" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#000" stop-opacity=".08"/>
     </linearGradient>
-    <linearGradient id="${p}socket" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#3f4246"/>
-      <stop offset="1" stop-color="#8d9196"/>
+    <linearGradient id="${p}housing" x1="35" x2="211" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c4c5c6"/><stop offset=".07" stop-color="#9c9d9e"/>
+      <stop offset=".5" stop-color="#a3a4a5"/><stop offset=".93" stop-color="#9c9d9e"/>
+      <stop offset="1" stop-color="#c4c5c6"/>
     </linearGradient>
-    <linearGradient id="${p}cap" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#fbfbfc"/>
-      <stop offset=".45" stop-color="#d9dbde"/>
-      <stop offset="1" stop-color="#9da1a6"/>
+    <linearGradient id="${p}toLedge" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".12"/>
     </linearGradient>
-    <radialGradient id="${p}knobFace" cx=".4" cy=".35" r=".7">
-      <stop offset="0" stop-color="#fbfbfc"/>
-      <stop offset=".6" stop-color="#dcdee1"/>
-      <stop offset="1" stop-color="#a9adb2"/>
+    <linearGradient id="${p}ledgeFront" x1="0" x2="0" y1="507" y2="519" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a6a7a8"/><stop offset=".7" stop-color="#9d9e9f"/><stop offset="1" stop-color="#b4b5b6"/>
+    </linearGradient>
+    <linearGradient id="${p}ledgeShadow" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity=".4"/><stop offset=".35" stop-color="#000" stop-opacity=".15"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="${p}capFace" x1="0" x2=".3" y1="0" y2="1">
+      <stop offset="0" stop-color="#828486"/><stop offset=".45" stop-color="#919395"/><stop offset="1" stop-color="#a7a9ab"/>
+    </linearGradient>
+    <linearGradient id="${p}capRing" x1="0" x2=".2" y1="0" y2="1">
+      <stop offset="0" stop-color="#f3f4f5"/><stop offset=".25" stop-color="#d6d8da"/>
+      <stop offset=".62" stop-color="#b4b7ba"/><stop offset=".85" stop-color="#eceef0"/><stop offset="1" stop-color="#c2c5c8"/>
+    </linearGradient>
+    <linearGradient id="${p}capWall" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#6d7073"/><stop offset=".6" stop-color="#55585b"/><stop offset="1" stop-color="#3a3c3f"/>
+    </linearGradient>
+    <radialGradient id="${p}gripRim" cx="${cx}" cy="${cy}" r="${GRIP.outer}" gradientUnits="userSpaceOnUse">
+      <stop offset=".86" stop-color="#8e9195"/><stop offset=".9" stop-color="#b9bcbf"/>
+      <stop offset=".95" stop-color="#e9ebec"/><stop offset=".98" stop-color="#fbfbfc"/><stop offset="1" stop-color="#b0b3b6"/>
     </radialGradient>
-    <linearGradient id="${p}knurl" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#e4e6e8"/>
-      <stop offset="1" stop-color="#8e9297"/>
+    <linearGradient id="${p}gripLight" x1="0" x2=".15" y1="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".25"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".75" stop-color="#000" stop-opacity=".12"/><stop offset="1" stop-color="#000" stop-opacity=".05"/>
     </linearGradient>
-    <filter id="${p}brush" x="0" y="0" width="100%" height="100%">
-      <feTurbulence type="fractalNoise" baseFrequency=".9 .004" numOctaves="2" seed="4"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .32 0 0 0 -.1"/>
+    <radialGradient id="${p}face" cx=".45" cy=".4" r=".75">
+      <stop offset="0" stop-color="#aeb0b2"/><stop offset="1" stop-color="#a3a5a7"/>
+    </radialGradient>
+    <linearGradient id="${p}faceRim" x1="0" x2=".3" y1="0" y2="1">
+      <stop offset="0" stop-color="#fff"/><stop offset=".5" stop-color="#d3d5d7"/><stop offset="1" stop-color="#f4f5f6"/>
+    </linearGradient>
+    <filter id="${p}soft" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="1.1"/></filter>
+    <filter id="${p}blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="${p}mottle" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".55" numOctaves="2" seed="3"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .5 0 0 0 -.18"/>
     </filter>
-    <filter id="${p}blur"><feGaussianBlur stdDeviation="4"/></filter>
-    <clipPath id="${p}plate"><rect x="36" y="106" width="168" height="590" rx="66"/></clipPath>
+    <clipPath id="${p}plate"><rect x="35" y="99" width="176" height="605" rx="50"/></clipPath>
   </defs>
 
   <!-- body -->
-  <rect x="18" y="88" width="204" height="626" rx="84" fill="#0c0c0d"/>
-  <rect x="21" y="91" width="198" height="620" rx="81" fill="none" stroke="#3a3b3d" stroke-width="1.5"/>
+  <rect x="21" y="89" width="204" height="623" rx="60" fill="#0b0b0c"/>
+  <rect x="21.75" y="89.75" width="202.5" height="621.5" rx="59.25" fill="none" stroke="#2c2d2f" stroke-width="1.5"/>
 
-  <!-- face plate -->
+  <!-- face plate: satin steel, bright along the top and edges; a ledge, then the darker knob housing -->
   <g clip-path="url(#${p}plate)">
-    <rect x="36" y="106" width="168" height="590" fill="url(#${p}face)"/>
-    <rect x="36" y="106" width="168" height="590" filter="url(#${p}brush)"/>
-    <rect x="36" y="516" width="168" height="190" fill="url(#${p}housing)"/>
-    <line x1="36" x2="204" y1="514.5" y2="514.5" stroke="#5d6166" stroke-opacity=".5" stroke-width="1.5"/>
-    <line x1="36" x2="204" y1="516.5" y2="516.5" stroke="#fff" stroke-opacity=".9" stroke-width="1.5"/>
+    <rect x="35" y="99" width="176" height="605" fill="url(#${p}plateH)"/>
+    <rect x="35" y="99" width="176" height="420" fill="url(#${p}plateV)"/>
+    <rect x="35" y="470" width="176" height="40" fill="url(#${p}toLedge)"/>
+    <rect x="35" y="518" width="176" height="190" fill="url(#${p}housing)"/>
+    <rect x="35" y="519" width="176" height="16" fill="url(#${p}ledgeShadow)"/>
+    <path d="M35 507H211V519H35Z" fill="url(#${p}ledgeFront)"/>
+    <path d="M35 507L42 515.6M211 507L204 515.6" stroke="#000" stroke-opacity=".12" stroke-width=".8"/>
+    <path d="M35 515.8H211" stroke="#fff" stroke-opacity=".8" stroke-width="1.1"/>
+    <path d="M35 519.4H211" stroke="#000" stroke-opacity=".3" stroke-width="1"/>
   </g>
-  <rect x="36" y="106" width="168" height="590" rx="66" fill="none" stroke="#6c7075" stroke-width="1.2"/>
+  <rect x="35.6" y="99.6" width="174.8" height="603.8" rx="49.4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.2"/>
 
   <!-- keys -->
   ${LEFT.map((k, i) => keySvg(p, k, 'L', i)).join('')}
   ${RIGHT.map((k, i) => keySvg(p, k, 'R', i)).join('')}
 
-  <!-- knob -->
+  <!-- knob: the grip ring turns; the face stays still -->
   <g class="kl-knob" role="button" tabindex="0" aria-label="Turn knob">
-    <circle class="kl-hit" cx="${cx}" cy="${cy}" r="80"/>
-    <ellipse cx="${cx}" cy="${cy + 20}" rx="70" ry="64" fill="#000" opacity=".28" filter="url(#${p}blur)"/>
+    <circle class="kl-hit" cx="${cx}" cy="${cy}" r="86"/>
+    <circle cx="${cx + 1}" cy="${cy + 6}" r="80" fill="#000" opacity=".3" filter="url(#${p}blur)"/>
     <g class="kl-knurl">
-      <circle cx="${cx}" cy="${cy - 6}" r="72" fill="url(#${p}knurl)"/>
-      <circle cx="${cx}" cy="${cy - 6}" r="68.5" fill="none" stroke="#5f6368" stroke-width="7"
-              pathLength="100" stroke-dasharray=".5 .5" opacity=".8"/>
+      <path d="${grip}" fill="url(#${p}gripRim)" stroke="#5a5d61" stroke-width=".7"/>
+      <path d="${grip}" fill="url(#${p}gripLight)"/>
+      ${gripGrooves()}
     </g>
-    <circle class="kl-knob-face" cx="${cx}" cy="${cy + 6}" r="64" fill="url(#${p}knobFace)" stroke="#8f9398" stroke-width="1.5"/>
-    <circle cx="${cx}" cy="${cy + 6}" r="57" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.5"/>
-    <circle cx="${cx}" cy="${cy + 6}" r="59" fill="none" stroke="#000" stroke-opacity=".08" stroke-width="1.5"/>
+    <circle cx="${cx}" cy="${cy}" r="${r + 1.2}" fill="none" stroke="#000" stroke-opacity=".2" stroke-width="1.4"/>
+    <circle class="kl-knob-face" cx="${cx}" cy="${cy}" r="${r}" fill="url(#${p}face)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r - 1.2}" fill="none" stroke="url(#${p}faceRim)" stroke-width="1.7"/>
+    <circle cx="${cx}" cy="${cy}" r="${r - 2.8}" fill="none" stroke="#000" stroke-opacity=".1" stroke-width="1"/>
   </g>
 </svg>`;
   }
