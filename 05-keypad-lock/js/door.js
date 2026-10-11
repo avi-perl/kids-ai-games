@@ -35,9 +35,14 @@ NoteLink.read(location).then(custom => {
 // Opening another link while already on the door only changes the part after "#": start over.
 addEventListener('hashchange', () => location.reload());
 
-// Every button press clicks.
+// A press that does something clicks; one that doesn't only taps faintly: a button that's already
+// in, or C with nothing to clear. (lock-input comes before the lock acts on it, so lock.state is
+// still how things were before this press.)
 lock.addEventListener('lock-input', e => {
-  if (e.detail.action === 'down') Sound.click();
+  if (e.detail.action !== 'down') return;
+  const pushedIn = lock.state.seated;
+  const doesSomething = e.detail.id === 'C' ? pushedIn.length > 0 : !pushedIn.includes(e.detail.id);
+  Sound.click(doesSomething ? 1 : 0.15);
 });
 
 // A wrong try flashes red around the lock. The right one lights it green for good, and the note
