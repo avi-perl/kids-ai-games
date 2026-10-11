@@ -20,8 +20,7 @@
   const ROW0 = 186, DY = 43.6;                       // label centre of row 1, row pitch
   const CAP = { w: 35, h: 25, lift: 4.5 };          // the cap's box; its centre sits 4.5 above its label's centre
   const CAP_X = { L: 73.5, R: 140 };
-  const LABEL = { h: 17, leftCentre: 60.5, rightCentre: 186.5, stroke: 2 };
-  const WIDTH = { 1: 9, 2: 19, 3: 20, 4: 21, 5: 20, 6: 19, 7: 20, 8: 19, 9: 19, 0: 20, X: 19, Y: 18, Z: 20, C: 20 };
+  const LABEL = { leftCentre: 60.5, rightCentre: 186.5 };
   const HOLE = 1.4;                                 // gap between a button and its hole in the plate
   // Where the photo's camera was: each button's top sits a little further from this point than its base
   // does (k of the distance), so you see a sliver of a button's side on the side facing the camera —
@@ -64,39 +63,65 @@
 
   let instance = 0;
 
-  // Engraved labels: monoline glyphs in a wide, squared style (like Microgramma Extended),
-  // drawn as stroke centrelines in a W×17 box.
-  function glyph(ch, W) {
-    const s = LABEL.stroke / 2;
-    const a = s, b = W - s, t = s, u = LABEL.h - s, m = LABEL.h / 2, r = 4.4;
-    const box = (x0, y0, x1, y1, rr) =>
-      `M${x0 + rr} ${y0}H${x1 - rr}Q${x1} ${y0} ${x1} ${y0 + rr}V${y1 - rr}Q${x1} ${y1} ${x1 - rr} ${y1}` +
-      `H${x0 + rr}Q${x0} ${y1} ${x0} ${y1 - rr}V${y0 + rr}Q${x0} ${y0} ${x0 + rr} ${y0}Z`;
-    switch (ch) {
-      case '0': return box(a, t, b, u, r);
-      case '1': return `M${a} ${t + 3.6}L${b} ${t}V${u}`;
-      case '2': return `M${a} ${t}H${b - r}Q${b} ${t} ${b} ${t + r}V${m - r}Q${b} ${m} ${b - r} ${m}H${a + r}Q${a} ${m} ${a} ${m + r}V${u}H${b}`;
-      case '3': return `M${a} ${t}H${b - r}Q${b} ${t} ${b} ${t + r}V${u - r}Q${b} ${u} ${b - r} ${u}H${a}M${a + 4} ${m}H${b}`;
-      case '4': return `M${b - 4.5} ${u}V${t}L${a} ${u - 5}H${b}`;
-      case '5': return `M${b} ${t}H${a}V${m}H${b - r}Q${b} ${m} ${b} ${m + r}V${u - r}Q${b} ${u} ${b - r} ${u}H${a}`;
-      case '6': return `M${b} ${t + 1.8}Q${b} ${t} ${b - 1.8} ${t}H${a + r}Q${a} ${t} ${a} ${t + r}V${u - r}Q${a} ${u} ${a + r} ${u}H${b - r}Q${b} ${u} ${b} ${u - r}V${m + r}Q${b} ${m} ${b - r} ${m}H${a}`;
-      case '7': return `M${a} ${t}H${b}L${a + 5} ${u}`;
-      case '8': return box(a + 0.8, t, b - 0.8, m, r * 0.8) + box(a, m, b, u, r * 0.8);
-      case '9': return `M${a} ${u - 1.8}Q${a} ${u} ${a + 1.8} ${u}H${b - r}Q${b} ${u} ${b} ${u - r}V${t + r}Q${b} ${t} ${b - r} ${t}H${a + r}Q${a} ${t} ${a} ${t + r}V${m - r}Q${a} ${m} ${a + r} ${m}H${b}`;
-      case 'X': return `M${a} ${t}L${b} ${u}M${b} ${t}L${a} ${u}`;
-      case 'Y': return `M${a} ${t}L${W / 2} ${m}L${b} ${t}M${W / 2} ${m}V${u}`;
-      case 'Z': return `M${a} ${t}H${b}L${a} ${u}H${b}`;
-      case 'C': return `M${b} ${t}H${a + r}Q${a} ${t} ${a} ${t + r}V${u - r}Q${a} ${u} ${a + r} ${u}H${b}`;
+  // Engraved labels: a squared, extended font (like Microgramma) filled with dark ink — flat-cut ends,
+  // square corners (blunt where a stroke turns back sharply), rounded ones elsewhere, nothing past the cap
+  // line or baseline. Pressed into the plate, so the light from above catches the metal just under each
+  // letter: a soft pale edge below it. Each glyph is strokes of [x, y, corner radius] points along the
+  // centre line, relative to the label's centre ('Z' closes a stroke), cut flush at the centre lines of
+  // its top and bottom bars plus half the stroke.
+  const INK = { width: 2.47, color: '#282828' };
+  const EDGE = { dy: .8, color: '#fff', opacity: .45 };
+  const GLYPHS = {
+    1: { top: -6.67, bottom: 8.91, strokes: [[[-5.35, -1.01], [3.01, -7.52], [3.01, 12.91]]] },
+    2: { top: -6.81, bottom: 8.77, strokes: [[[-7.66, -2.21], [-7.66, -6.81, 3.9], [9.09, -6.81, 4.1], [9.09, 1.99, 4.1], [-7.66, 1.99, 8.39], [-7.66, 8.77], [10.36, 8.77]]] },
+    3: { top: -6.85, bottom: 8.73, strokes: [[[-8.04, -2.25], [-8.04, -6.85, 3.9], [9.35, -6.85, 4.1], [9.35, 8.73, 4.1], [-8.04, 8.73, 3.9], [-8.04, 4.13]], [[-1.77, .51], [9.35, .51]]] },
+    4: { top: -6.96, bottom: 8.62, strokes: [[[7.1, 12.62], [7.1, -8.29], [-9.17, 4.78], [11.73, 4.78]]] },
+    5: { top: -6.98, bottom: 8.6, strokes: [[[10.07, -6.98], [-7.7, -6.98], [-7.7, -1.31], [9.4, -1.31, 4.1], [9.4, 8.6, 4.1], [-7.7, 8.6, 3.9], [-7.7, 4]]] },
+    'X': { top: -7.03, bottom: 8.55, strokes: [[[-9.34, -9.85], [12.05, 11.37]], [[11.77, -9.82], [-9.97, 11.34]]] },
+    'Y': { top: -6.82, bottom: 8.76, strokes: [[[-9.77, -9.85], [.61, 2.15], [11.21, -9.81]], [[.61, 2.15], [.61, 12.76]]] },
+    6: { top: -7.15, bottom: 8.43, strokes: [[[8.13, -2.55], [8.13, -7.15, 3.9], [-8.42, -7.15, 4.1], [-8.42, 8.43, 4.1], [8.33, 8.43, 4.1], [8.33, -.12, 4.1], [-8.42, -.12]]] },
+    7: { top: -7.25, bottom: 8.33, strokes: [[[-9.53, -7.25], [10.24, -7.25], [-6.05, 11.34]]] },
+    8: { top: -7.47, bottom: 8.11, strokes: [[[-8.3, -7.47, 3.72], [8.56, -7.47, 3.72], [8.56, .09, 3.72], [-8.3, .09, 3.72], 'Z'], [[-8.43, .09, 3.72], [8.74, .09, 3.72], [8.74, 8.11, 3.72], [-8.43, 8.11, 3.72], 'Z']] },
+    9: { top: -7.57, bottom: 8.01, strokes: [[[-8.72, 3.41], [-8.72, 8.01, 3.9], [8.54, 8.01, 4.1], [8.54, -7.57, 4.1], [-8.29, -7.57, 4.1], [-8.29, .77, 4.1], [8.54, .77]]] },
+    0: { top: -7.74, bottom: 7.84, strokes: [[[-8.29, -7.74, 4.1], [9.44, -7.74, 4.1], [9.44, 7.84, 4.1], [-8.29, 7.84, 4.1], 'Z']] },
+    'Z': { top: -7.82, bottom: 7.76, strokes: [[[-9.53, -7.82], [9.9, -7.82], [-8.7, 7.76], [10.76, 7.76]]] },
+    'C': { top: -7.87, bottom: 7.71, strokes: [[[9.34, -3.27], [9.34, -7.87, 3.9], [-8.2, -7.87, 4.1], [-8.2, 7.71, 4.1], [9.57, 7.71, 3.9], [9.57, 3.11]]] },
+  };
+
+  // A stroke's centre line as a path: a corner with radius r rounds off with a quadratic curve from r
+  // before it to r after it (at most half a side, or all of a side that ends the stroke).
+  function centreLine(strokes) {
+    const f = v => +v.toFixed(2);
+    let d = '';
+    for (const stroke of strokes) {
+      const closed = stroke.at(-1) === 'Z';
+      const pts = closed ? stroke.slice(0, -1) : stroke, n = pts.length;
+      let cmd = 'M';
+      const to = (x, y) => { d += `${cmd}${f(x)} ${f(y)}`; cmd = 'L'; };
+      pts.forEach(([x, y, r = 0], i) => {
+        if (r <= 0 || (!closed && (i === 0 || i === n - 1))) return to(x, y);
+        const [px, py] = pts[(i - 1 + n) % n], [nx, ny] = pts[(i + 1) % n];
+        const din = Math.hypot(x - px, y - py), dout = Math.hypot(nx - x, ny - y);
+        const rin = Math.min(r, !closed && i === 1 ? din : din / 2);
+        const rout = Math.min(r, !closed && i === n - 2 ? dout : dout / 2);
+        to(x - (x - px) / din * rin, y - (y - py) / din * rin);
+        d += `Q${f(x)} ${f(y)} ${f(x + (nx - x) / dout * rout)} ${f(y + (ny - y) / dout * rout)}`;
+      });
+      if (closed) d += 'Z';
     }
+    return d;
   }
 
-  function labelSvg(key, side, cy) {
-    const W = WIDTH[key];
-    const x = (side === 'L' ? LABEL.leftCentre : LABEL.rightCentre) - W / 2;
-    const d = glyph(key, W);
-    return `<g class="kl-glyph" transform="translate(${x} ${cy - LABEL.h / 2})">
-      <path d="${d}" transform="translate(.35 .7)" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.7"/>
-      <path d="${d}" fill="none" stroke="#323437" stroke-width="${LABEL.stroke}"/>
+  // The pale edge is the letter again, a little lower, under the ink: only its rim below the ink shows.
+  function labelSvg(p, key, side, cy) {
+    const cx = side === 'L' ? LABEL.leftCentre : LABEL.rightCentre;
+    const { top, bottom, strokes } = GLYPHS[key];
+    const half = INK.width / 2;
+    const letter = `d="${centreLine(strokes)}" fill="none" stroke-width="${INK.width}" stroke-miterlimit="2" clip-path="url(#${p}cut${key})"`;
+    return `<g class="kl-glyph" transform="translate(${cx} ${cy})">
+      <clipPath id="${p}cut${key}"><rect x="-14" y="${(top - half).toFixed(2)}" width="28" height="${(bottom - top + 2 * half).toFixed(2)}"/></clipPath>
+      <path ${letter} stroke="${EDGE.color}" opacity="${EDGE.opacity}" transform="translate(0 ${EDGE.dy})" filter="url(#${p}edgeBlur)"/>
+      <path ${letter} stroke="${INK.color}"/>
     </g>`;
   }
 
@@ -158,7 +183,7 @@
           </g>
           <path class="kl-cap-shade" d="${squircle(tx, ty, a, b)}" fill="#000"/>
         </g>
-        ${labelSvg(key, side, cy)}
+        ${labelSvg(p, key, side, cy)}
       </g>`;
   }
 
@@ -197,15 +222,13 @@
     return `<path d="${d}" stroke="#55585c" stroke-opacity=".4" stroke-width=".9"/>`;
   }
 
-  // The knob face is spun steel: faint concentric rings, each a little lighter or darker at random.
-  function spunRings(cx, cy, r) {
-    let seed = 7, rings = '';
-    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    for (let rr = 7; rr < r - 3; rr += 0.9) { // none near the middle, where they'd bunch into a bullseye
-      const tone = rand() < 0.5 ? '#fff' : '#000';
-      rings += `<circle cx="${cx}" cy="${cy}" r="${rr.toFixed(1)}" stroke="${tone}" stroke-opacity="${(0.01 + rand() * 0.035).toFixed(3)}"/>`;
-    }
-    return `<g fill="none" stroke-width=".6">${rings}</g>`;
+  // The knob face, as in the photo: satin steel with no lines — just a very fine, faint grain — lit
+  // softly from the top left.
+  function knobFace(p, cx, cy, r) {
+    return `<g clip-path="url(#${p}faceClip)">
+      <rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" filter="url(#${p}satin)" opacity=".2" style="mix-blend-mode:soft-light"/>
+      <circle cx="${cx - 18}" cy="${cy - 26}" r="${(r * .8).toFixed(1)}" fill="#fff" opacity=".2" filter="url(#${p}sheen)"/>
+    </g>`;
   }
 
   function lockSvg(p) {
@@ -275,6 +298,7 @@
     </linearGradient>
     <filter id="${p}glare" x="-30%" y="-100%" width="160%" height="300%"><feGaussianBlur stdDeviation="7"/></filter>
     <filter id="${p}edgeSoft" x="-10%" y="-15%" width="120%" height="130%"><feGaussianBlur stdDeviation=".55"/></filter>
+    <filter id="${p}edgeBlur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".3"/></filter>
     <linearGradient id="${p}hole" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0" stop-color="#46484b"/><stop offset="1" stop-color="#65686b"/>
     </linearGradient>
@@ -302,8 +326,9 @@
     <filter id="${p}soft" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="1.1"/></filter>
     <filter id="${p}softWide" x="-50%" y="-60%" width="200%" height="240%"><feGaussianBlur stdDeviation="3.2"/></filter>
     <filter id="${p}blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="${p}sheen" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
     <filter id="${p}brush" x="0" y="0" width="100%" height="100%"><!-- fine horizontal grain on the caps -->
-      <feTurbulence type="fractalNoise" baseFrequency=".03 1.4" numOctaves="2" seed="5"/>
+      <feTurbulence type="fractalNoise" baseFrequency=".022 .95" numOctaves="2" seed="5"/>
       <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .9 0 0 0 -.35"/>
       <feComposite in2="SourceGraphic" operator="in"/><!-- only within the cap's own outline -->
     </filter>
@@ -319,7 +344,7 @@
     <!-- Stainless steel isn't perfect: a fine vertical brushed grain and faint uneven patches on the
          plate, a fine grain on the grip, patches on the knob face. Grey noise, blended soft-light. -->
     <filter id="${p}steelBrush" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-      <feTurbulence type="fractalNoise" baseFrequency="1.1 .018" numOctaves="2" seed="11"/>
+      <feTurbulence type="fractalNoise" baseFrequency=".75 .014" numOctaves="2" seed="11"/>
       <feColorMatrix type="matrix" values=".33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1"/>
     </filter>
     <filter id="${p}steelPatch" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -327,11 +352,15 @@
       <feColorMatrix type="matrix" values=".33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1"/>
     </filter>
     <filter id="${p}steelFine" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="8"/>
+      <feTurbulence type="fractalNoise" baseFrequency=".5" numOctaves="2" seed="8"/>
       <feColorMatrix type="matrix" values=".33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1"/>
     </filter>
     <clipPath id="${p}plate"><rect x="35" y="99" width="176" height="605" rx="50"/></clipPath>
     <clipPath id="${p}gripClip"><path d="${grip}"/></clipPath>
+    <filter id="${p}satin" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="2"/>
+      <feColorMatrix type="matrix" values=".33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1"/>
+    </filter>
     <clipPath id="${p}faceClip"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
   </defs>
 
@@ -374,7 +403,7 @@
     </g>
     <circle cx="${cx}" cy="${cy}" r="${r + 1.2}" fill="none" stroke="#000" stroke-opacity=".2" stroke-width="1.4"/>
     <circle class="kl-knob-face" cx="${cx}" cy="${cy}" r="${r}" fill="url(#${p}face)"/>
-    ${spunRings(cx, cy, r)}
+    ${knobFace(p, cx, cy, r)}
     <rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" clip-path="url(#${p}faceClip)" filter="url(#${p}steelPatch)" opacity=".35" style="mix-blend-mode:soft-light"/>
     <circle cx="${cx}" cy="${cy}" r="${r - 1.2}" fill="none" stroke="url(#${p}faceRim)" stroke-width="1.7"/>
     <circle cx="${cx}" cy="${cy}" r="${r - 2.8}" fill="none" stroke="#000" stroke-opacity=".1" stroke-width="1"/>
