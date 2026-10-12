@@ -189,16 +189,16 @@
   }
 
   // The knob's grip, behind the face: one ring of rounded bumps all the way round (a V-notch every
-  // ridgeDeg), with four big sweeping cuts taken out of it between the grips, each a round arc. A cut spans
-  // the same angle front and back, but reaches the face at the front and only a shallower depth at the
-  // back (a flatter arc), so it leaves a sloping floor. The camera looks a little down on the knob, so the back of the ring
+  // ridgeDeg), with four deep, sweeping cuts taken out of it between the grips: the bite of a round cutter
+  // of radius CUT.r, down to just short of the face at the front (a thin collar of the grip stays round the
+  // face) and nearly as deep at the back, so a little of each cut's floor shows. The camera looks a little down on the knob, so the back of the ring
   // shows LIFT above its front wherever the ring faces up: the top grip's bumpy wall (the same bumps as on
   // the sides, seen from above), and in the upper cuts their sloping floors, lit where they rise steeply to
   // the grips and dark down in the bottom. The rounded front edge turns away from the camera at the top and
   // bottom, so the ring looks a little shorter there (`top`, `bottom`). Angles are on screen, clockwise from
   // straight up, so the light and the camera stay put while the grip turns.
   const GRIP = { inner: 72.5, outer: 80, top: 2, bottom: 2.8, ridgeDeg: 10, rib: 1.4, lift: 6 };
-  const CUT = { half: 15.5, front: 72.4, back: 76.5 };  // half its angle at the ring's edge; how far in it reaches, front and back
+  const CUT = { r: 34, front: 73.5, back: 74.5 };  // cutter radius; how far in it reaches, front and back
   const WALL_SHADES = 32;
   const rad = deg => deg * Math.PI / 180;
   const polar = (deg, r) => [KNOB.cx + r * Math.sin(rad(deg)), KNOB.cy - r * Math.cos(rad(deg))];
@@ -212,13 +212,11 @@
   }
 
   // Where the nearest cut's edge is along screen angle deg, for a cut whose deepest point is `depth` from
-  // the centre: an arc through that point and the ring's edge CUT.half either side (Infinity beyond it).
+  // the centre (Infinity where the cutter doesn't reach).
   function cutEdge(deg, rot, depth) {
     const phi = rad(((deg - rot - 45) % 90 + 135) % 90 - 45);  // from the nearest cut's centre line
-    const R = GRIP.outer, c = Math.cos(rad(CUT.half));
-    const r = (2 * R * c * depth - R * R - depth * depth) / (2 * depth - 2 * R * c);  // the arc's radius
-    const dist = depth + r, off = dist * Math.sin(phi);
-    return Math.abs(off) >= r ? Infinity : dist * Math.cos(phi) - Math.sqrt(r * r - off * off);
+    const dist = depth + CUT.r, off = dist * Math.sin(phi);
+    return Math.abs(off) >= CUT.r ? Infinity : dist * Math.cos(phi) - Math.sqrt(CUT.r * CUT.r - off * off);
   }
 
   // The ring's outline, clockwise on screen, at its front and at its back (lifted), and how deep the cut is
@@ -258,24 +256,27 @@
     return `M${x0.toFixed(2)} ${y0.toFixed(2)}A74.8 74.8 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
   })();
 
-  // The grip at a turn of rot degrees. The wall is lit by how squarely it faces up; a cut's floor by how
-  // steeply it rises — bright where it climbs to the grips, dark down in the bottom, darker toward the back.
+  // The grip at a turn of rot degrees. The wall is lit by how squarely it faces up; a cut's floor curves
+  // like a scoop — lit where it climbs to the grips, darker down in the bottom, and darkening smoothly
+  // toward the back. Each strip of wall or floor is drawn in slices from front to back so it shades evenly.
   function gripSvg(p, rot) {
     const ring = ringOutline(rot), { front, back, cut } = ring, n = front.length;
     const shades = Array(WALL_SHADES).fill('');
     const shade = (grey, quad) => {
       shades[Math.max(0, Math.min(WALL_SHADES - 1, Math.round((grey - 90) / (220 - 90) * (WALL_SHADES - 1))))] += pathOf(quad);
     };
-    const mid = ([x, y], [bx, by]) => [(x + bx) / 2, (y + by) / 2];
+    const SLICES = 6;
+    const at = ([x, y], [bx, by], k) => [x + (bx - x) * k, y + (by - y) * k];
     front.forEach(([x0, y0], i) => {
       const j = (i + 1) % n, [x1, y1] = front[j], len = Math.hypot(x1 - x0, y1 - y0);
       if (x1 <= x0 || len < 1e-6) return;
       const facingUp = (x1 - x0) / len;  // minus the outward normal's y
       const t = Math.max(cut[i], cut[j]);
-      const grey = 125 + 95 * facingUp ** 2, floor = 210 - 105 * Math.sqrt(t);
-      const g = t > .02 ? floor : grey, m0 = mid(front[i], back[i]), m1 = mid(front[j], back[j]);
-      shade(g, [front[i], front[j], m1, m0]);
-      shade(g - (t > .02 ? 30 : 8), [m0, m1, back[j], back[i]]);
+      const [near, fall] = t > .02 ? [190 - 45 * t ** .6, 50] : [125 + 95 * facingUp ** 2, 10];
+      for (let k = 0; k < SLICES; k++) {
+        const k0 = k / SLICES, k1 = (k + 1) / SLICES;
+        shade(near - fall * (k + .5) / SLICES, [at(front[i], back[i], k0), at(front[j], back[j], k0), at(front[j], back[j], k1), at(front[i], back[i], k1)]);
+      }
     });
     // A soft seam between bumps, from each notch in over the rounded edge (and up the wall, where it shows).
     // Not along the bottom, where the rounded edge turns away from the camera and the bumps flatten out.
@@ -301,20 +302,25 @@
   }
 
   // The knob face, as in the photo: flat satin steel with a rounded rim — a fine bright line all round,
-  // broad along the top where it faces the light.
+  // broadening only near the top, where it faces the light (so it stays a fine line beside the cuts).
+  const RIM = { line: 1.6, top: 3.6 };
   function knobFace(p, cx, cy, r) {
-    const rim = `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`
-      + `M${cx - r + 1.5} ${cy + 4.5}a${r - 1.5} ${r - 1.5} 0 1 0 ${2 * r - 3} 0a${r - 1.5} ${r - 1.5} 0 1 0 ${-2 * r + 3} 0Z`;
+    const outer = [], inner = [];
+    for (let deg = 0; deg < 360; deg += 2) {
+      const w = RIM.line + RIM.top * Math.max(0, Math.cos(rad(deg))) ** 3;
+      outer.push([cx + r * Math.sin(rad(deg)), cy - r * Math.cos(rad(deg))]);
+      inner.push([cx + (r - w) * Math.sin(rad(deg)), cy - (r - w) * Math.cos(rad(deg))]);
+    }
+    const rim = pathOf(outer) + pathOf(inner);
     // The fill goes inside the clipped group: a clip isolates the group, so the soft-light grain needs its
     // backdrop in there with it.
     return `
       <g clip-path="url(#${p}faceClip)">
         <rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" fill="url(#${p}face)"/>
         <rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" filter="url(#${p}satin)" opacity=".2" style="mix-blend-mode:soft-light"/>
-        <path d="${rim}" fill-rule="evenodd" fill="url(#${p}faceRimTop)"/>
+        <path d="${rim}" fill-rule="evenodd" fill="url(#${p}faceRimTop)" filter="url(#${p}edgeSoft)"/><!-- soft inside: a rounded edge -->
       </g>
-      <circle cx="${cx}" cy="${cy}" r="${r - .8}" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="1.5"/>
-      <circle cx="${cx}" cy="${cy}" r="${r + .9}" fill="none" stroke="#8f8f8f" stroke-width="1.4"/>
+      <circle cx="${cx}" cy="${cy}" r="${r + .8}" fill="none" stroke="#8a8a8a" stroke-width="1.4"/>
       <circle class="kl-knob-face" cx="${cx}" cy="${cy}" r="${r}" fill="none"/>`;
   }
 
@@ -423,9 +429,9 @@
       <stop offset="0" stop-color="#acacac"/><stop offset=".12" stop-color="#a7a7a7"/>
       <stop offset=".88" stop-color="#a6a6a6"/><stop offset="1" stop-color="#acacac"/>
     </linearGradient>
-    <linearGradient id="${p}faceRimTop" x1="0" x2="0" y1="${cy - r}" y2="${cy}" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".3" stop-color="#fff" stop-opacity=".75"/>
-      <stop offset=".6" stop-color="#fff" stop-opacity=".3"/><stop offset=".9" stop-color="#fff" stop-opacity="0"/>
+    <linearGradient id="${p}faceRimTop" x1="0" x2="0" y1="${cy - r}" y2="${cy + r}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".25" stop-color="#fff" stop-opacity=".65"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity=".22"/>
     </linearGradient>
     <filter id="${p}soft" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="1.1"/></filter>
     <filter id="${p}softWide" x="-50%" y="-60%" width="200%" height="240%"><feGaussianBlur stdDeviation="3.2"/></filter>
@@ -499,7 +505,7 @@
     <circle class="kl-hit" cx="${cx}" cy="${cy}" r="86"/>
     <ellipse cx="${cx - 56}" cy="${cy - 62}" rx="22" ry="13" transform="rotate(-42 ${cx - 56} ${cy - 62})" fill="#000" opacity=".16" filter="url(#${p}softWide)"/>
     <ellipse cx="${cx + 57}" cy="${cy - 63}" rx="16" ry="10" transform="rotate(42 ${cx + 57} ${cy - 63})" fill="#000" opacity=".1" filter="url(#${p}softWide)"/>
-    ${[[122, 150], [210, 238]].map(([a, b]) => { const [x0, y0] = polar(a, 77), [x1, y1] = polar(b, 77); return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}A77 77 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="none" stroke="#000" stroke-opacity=".14" stroke-width="10" filter="url(#${p}softWide)"/>`; }).join('')}
+    ${[135, 225].map(c => { const [x0, y0] = polar(c - 16, 77), [x1, y1] = polar(c + 16, 77); return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}A77 77 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="none" stroke="#000" stroke-opacity=".08" stroke-width="16" filter="url(#${p}softWide)"/>`; }).join('')}
     <g class="kl-grip">${gripSvg(p, 0)}</g>
     ${knobFace(p, cx, cy, r)}
   </g>
