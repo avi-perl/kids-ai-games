@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Keypad in photo coordinates</title>
+<style>
+  html, body { margin: 0; background: #fff; overflow: hidden; }
+  /* 1 CSS px = 1 pixel of ref.png: the whole 248×800 photo frame, so a screenshot lines up with it. */
+  lockey-2930-keypad { position: absolute; left: 0; top: 0; width: 248px; height: 800px; }
+</style></head>
+<body>
+<lockey-2930-keypad></lockey-2930-keypad>
+<script src="../js/lockey-2930-keypad.js"></script>
+<script>
+  const svg = document.querySelector('lockey-2930-keypad svg');
+  svg.setAttribute('viewBox', '0 0 248 800');
+  // ?edge=.8,.45 tries another pale edge under the labels: how far down, how strong.
+  const edge = new URLSearchParams(location.search).get('edge');
+  if (edge) {
+    const [dy, opacity] = edge.split(',');
+    svg.querySelectorAll('.kl-glyph path[filter]').forEach(path => {
+      path.setAttribute('transform', `translate(0 ${dy})`);
+      if (opacity) path.setAttribute('opacity', opacity);
+    });
+  }
+  document.title = 'ready';
+</script>
+</body></html>

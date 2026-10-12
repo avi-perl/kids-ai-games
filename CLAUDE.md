@@ -53,6 +53,8 @@ kids-game/
                              Share (under the photo, then in the card): the photo + "Can you open this door?" + link
                              via the OS share sheet, else words + link, else copy; note expand, sound
       make.js              ← make.html wiring: answer limited to the lock's buttons, preview, link
+    tools/            ← keypad-vs-photo harness: Chrome render, overlays, label fitter, knob check (not part of the game)
+    CLAUDE.md         ← how to use tools/
   CLAUDE.md
 ```
 When adding a new game, create a new subfolder (e.g. `word-blast/index.html`) and add a card to the root `index.html` grid.

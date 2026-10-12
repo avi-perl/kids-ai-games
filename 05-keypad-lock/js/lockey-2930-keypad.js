@@ -29,8 +29,14 @@
   // The shadow the light casts (not the camera): tight and dark right under a button, then a soft tail
   // fading out over a few pixels, as in the photo.
   const SHADOW = { near: { dx: .6, dy: 1.6, opacity: .18 }, far: { dx: 1.2, dy: 4.5, opacity: .3 } };
-  const KNOB = { cx: 125, cy: 617, r: 69 };
+  const KNOB = { cx: 124.6, cy: 613.8, r: 70.7 };     // the face
   const PRESS_MS = 110;
+  // The grip's turn when the knob opens the lock, or catches on it: [time, degrees] keyframes, eased
+  // between each pair.
+  const SPIN = {
+    turned: { ms: 650, keys: [[0, 0], [.5, 80], [1, 0]], ease: t => t * t * (3 - 2 * t) },
+    caught: { ms: 300, keys: [[0, 0], [.3, 7], [.6, -3], [.85, 1.5], [1, 0]], ease: t => 1 - (1 - t) ** 2 },
+  };
 
   const CSS = `
     :where(lockey-2930-keypad) { display: inline-block; width: 200px; aspect-ratio: 212 / 632; }
@@ -54,11 +60,6 @@
     .kl-key.down .kl-cap-shade { opacity: .14; }
     .kl-key.down .kl-shadow { opacity: .45; }
     .kl-key:focus-visible .kl-cap-ring, .kl-knob:focus-visible .kl-knob-face { stroke: #2f7de1; stroke-width: 2.5; stroke-opacity: 1; }
-    .kl-knurl { transform-box: fill-box; transform-origin: 50% 50%; }
-    .kl-knob.turned .kl-knurl { animation: kl-turn 650ms ease-in-out; }
-    .kl-knob.caught .kl-knurl { animation: kl-catch 300ms ease-out; }
-    @keyframes kl-turn { 50% { transform: rotate(80deg); } }
-    @keyframes kl-catch { 30% { transform: rotate(7deg); } 60% { transform: rotate(-3deg); } 85% { transform: rotate(1.5deg); } }
   `;
 
   let instance = 0;
@@ -187,53 +188,138 @@
       </g>`;
   }
 
-  // The knob's grip ring: four identical lobes (top, right, bottom, left) centred on the face, each
-  // with broad rounded ridges and V-notches — a notch on every lobe's centre line, so each lobe mirrors
-  // itself — and narrow dips between lobes.
-  const GRIP = { base: 71, outer: 82, flat: 30, taper: 6, ridgeDeg: 7.5, depth: 1.6 };  // ridgeDeg divides 90
-  const lobeAt = deg => {
-    const off = Math.abs(((deg + 45) % 90) - 45);   // degrees from the nearest lobe centre
-    return off < GRIP.flat ? 1 : off > GRIP.flat + GRIP.taper ? 0 : 0.5 + 0.5 * Math.cos((off - GRIP.flat) / GRIP.taper * Math.PI);
-  };
-  const gripR = deg => {
-    const lobe = lobeAt(deg);
-    const notch = 1 - Math.abs(Math.sin(deg / GRIP.ridgeDeg * Math.PI));  // 0 on a ridge, 1 in a V-notch
-    return GRIP.base + (GRIP.outer - GRIP.base) * lobe - GRIP.depth * notch * lobe;
-  };
-  const gripPt = (deg, r) => {
-    const th = deg * Math.PI / 180;
-    return `${(KNOB.cx + r * Math.sin(th)).toFixed(2)} ${(KNOB.cy - r * Math.cos(th)).toFixed(2)}`;
-  };
+  // The knob's grip, behind the face: one ring of rounded bumps all the way round (a V-notch every
+  // ridgeDeg), with four big sweeping cuts taken out of it between the grips, each a round arc. A cut spans
+  // the same angle front and back, but reaches the face at the front and only a shallower depth at the
+  // back (a flatter arc), so it leaves a sloping floor. The camera looks a little down on the knob, so the back of the ring
+  // shows LIFT above its front wherever the ring faces up: the top grip's bumpy wall (the same bumps as on
+  // the sides, seen from above), and in the upper cuts their sloping floors, lit where they rise steeply to
+  // the grips and dark down in the bottom. The rounded front edge turns away from the camera at the top and
+  // bottom, so the ring looks a little shorter there (`top`, `bottom`). Angles are on screen, clockwise from
+  // straight up, so the light and the camera stay put while the grip turns.
+  const GRIP = { inner: 72.5, outer: 80, top: 2, bottom: 2.8, ridgeDeg: 10, rib: 1.4, lift: 6 };
+  const CUT = { half: 15.5, front: 72.4, back: 76.5 };  // half its angle at the ring's edge; how far in it reaches, front and back
+  const WALL_SHADES = 32;
+  const rad = deg => deg * Math.PI / 180;
+  const polar = (deg, r) => [KNOB.cx + r * Math.sin(rad(deg)), KNOB.cy - r * Math.cos(rad(deg))];
+  const pathOf = pts => `M${pts.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join('L')}Z`;
 
-  function gripPath() {
-    const pts = [];
-    for (let deg = 0; deg < 360; deg += 0.5) pts.push(gripPt(deg, gripR(deg)));
-    return `M${pts.join('L')}Z`;
+  // The bumpy ring before the cuts, at screen angle deg with the grip turned rot.
+  function ringOuter(deg, rot) {
+    const ridge = Math.abs(Math.sin((deg - rot) / GRIP.ridgeDeg * Math.PI));  // 0 in a notch, 1 on a bump
+    const cos = Math.cos(rad(deg)), down = Math.max(0, -cos) ** 2;
+    return GRIP.outer - (cos > 0 ? GRIP.top : GRIP.bottom) * cos * cos - GRIP.rib * (1 - ridge) * (1 - down);
   }
 
-  // A short groove in from each V-notch, near the outer edge.
-  function gripGrooves() {
-    let d = '';
-    for (let deg = 0; deg < 360; deg += GRIP.ridgeDeg) {
-      if (lobeAt(deg) < 0.8) continue;
-      const r = gripR(deg);
-      d += `M${gripPt(deg, r - 4.5)}L${gripPt(deg, r)}`;
+  // Where the nearest cut's edge is along screen angle deg, for a cut whose deepest point is `depth` from
+  // the centre: an arc through that point and the ring's edge CUT.half either side (Infinity beyond it).
+  function cutEdge(deg, rot, depth) {
+    const phi = rad(((deg - rot - 45) % 90 + 135) % 90 - 45);  // from the nearest cut's centre line
+    const R = GRIP.outer, c = Math.cos(rad(CUT.half));
+    const r = (2 * R * c * depth - R * R - depth * depth) / (2 * depth - 2 * R * c);  // the arc's radius
+    const dist = depth + r, off = dist * Math.sin(phi);
+    return Math.abs(off) >= r ? Infinity : dist * Math.cos(phi) - Math.sqrt(r * r - off * off);
+  }
+
+  // The ring's outline, clockwise on screen, at its front and at its back (lifted), and how deep the cut is
+  // at each point (0 uncut, 1 at the bottom of a cut).
+  function ringOutline(rot) {
+    const front = [], back = [], cut = [];
+    for (let deg = 0; deg < 360; deg += .5) {
+      const r = ringOuter(deg, rot);
+      const rf = Math.max(GRIP.inner, Math.min(r, cutEdge(deg, rot, CUT.front)));
+      const rb = Math.min(r, cutEdge(deg, rot, CUT.back));
+      front.push(polar(deg, rf));
+      const [x, y] = polar(deg, rb);
+      back.push([x, y - GRIP.lift]);
+      cut.push(Math.max(0, (r - rf) / (r - CUT.front)));
     }
-    return `<path d="${d}" stroke="#55585c" stroke-opacity=".4" stroke-width=".9"/>`;
+    return { front, back, cut };
   }
 
-  // The knob face, as in the photo: satin steel with no lines — just a very fine, faint grain — lit
-  // softly from the top left.
+  // The ring swept back through its depth: on a clockwise outline the rightward edges face up, and those
+  // show at the back; the rest stay at the front, joined by straight runs where the two meet. Filled
+  // nonzero, this covers every depth's copy.
+  function swept({ front, back }) {
+    const n = front.length, out = [];
+    const up = i => front[(i + 1) % n][0] > front[i][0];
+    for (let i = 0; i < n; i++) {
+      const was = up((i - 1 + n) % n), is = up(i);
+      if (was !== is) out.push(was ? back[i] : front[i]);
+      out.push(is ? back[i] : front[i]);
+    }
+    return out;
+  }
+
+  // Light on the bottom grip's front, along the inner side of its rounded edge. The light stays put, so
+  // this stays where the bottom grip sits, on whichever grip is there.
+  const BOTTOM_GLINT = (() => {
+    const [x0, y0] = polar(140, 74.8), [x1, y1] = polar(220, 74.8);
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)}A74.8 74.8 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  })();
+
+  // The grip at a turn of rot degrees. The wall is lit by how squarely it faces up; a cut's floor by how
+  // steeply it rises — bright where it climbs to the grips, dark down in the bottom, darker toward the back.
+  function gripSvg(p, rot) {
+    const ring = ringOutline(rot), { front, back, cut } = ring, n = front.length;
+    const shades = Array(WALL_SHADES).fill('');
+    const shade = (grey, quad) => {
+      shades[Math.max(0, Math.min(WALL_SHADES - 1, Math.round((grey - 90) / (220 - 90) * (WALL_SHADES - 1))))] += pathOf(quad);
+    };
+    const mid = ([x, y], [bx, by]) => [(x + bx) / 2, (y + by) / 2];
+    front.forEach(([x0, y0], i) => {
+      const j = (i + 1) % n, [x1, y1] = front[j], len = Math.hypot(x1 - x0, y1 - y0);
+      if (x1 <= x0 || len < 1e-6) return;
+      const facingUp = (x1 - x0) / len;  // minus the outward normal's y
+      const t = Math.max(cut[i], cut[j]);
+      const grey = 125 + 95 * facingUp ** 2, floor = 210 - 105 * Math.sqrt(t);
+      const g = t > .02 ? floor : grey, m0 = mid(front[i], back[i]), m1 = mid(front[j], back[j]);
+      shade(g, [front[i], front[j], m1, m0]);
+      shade(g - (t > .02 ? 30 : 8), [m0, m1, back[j], back[i]]);
+    });
+    // A soft seam between bumps, from each notch in over the rounded edge (and up the wall, where it shows).
+    // Not along the bottom, where the rounded edge turns away from the camera and the bumps flatten out.
+    let seams = '';
+    for (let k = 0; k < 360 / GRIP.ridgeDeg; k++) {
+      const deg = rot + k * GRIP.ridgeDeg, i = Math.round((((deg % 360) + 360) % 360) / .5) % n;
+      if (Math.cos(rad(deg)) < -.7 || cut[i] > 0 || cut[(i + 2) % n] > 0 || cut[(i + n - 2) % n] > 0) continue;
+      const [x, y] = front[i], [bx, by] = back[i], [ix, iy] = polar(deg, GRIP.outer - 5.5);
+      const tx = Math.cos(rad(deg)) * 1.3, ty = Math.sin(rad(deg)) * 1.3;
+      seams += pathOf([[ix, iy], [x + tx, y + ty], [bx + tx, by + ty], [bx - tx, by - ty], [x - tx, y - ty]]);
+    }
+    const grey = k => Math.round(90 + (220 - 90) * k / (WALL_SHADES - 1));
+    const fronts = pathOf(front), walls = pathOf(swept(ring));
+    return `
+      <path d="${walls}" fill="#8c8c8c"/>
+      ${shades.map((d, k) => d && `<path d="${d}" fill="rgb(${grey(k)},${grey(k)},${grey(k)})"/>`).join('')}
+      <path d="${fronts}" fill="url(#${p}lobeFront)"/>
+      <path d="${fronts}" fill="url(#${p}lobeLight)"/>
+      <clipPath id="${p}gripAll"><path d="${walls}"/></clipPath>
+      <path d="${seams}" fill="#000" fill-opacity=".16" filter="url(#${p}edgeSoft)" clip-path="url(#${p}gripAll)"/>
+      <clipPath id="${p}gripFront"><path d="${fronts}"/></clipPath>
+      <path d="${BOTTOM_GLINT}" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2" clip-path="url(#${p}gripFront)"/>`;
+  }
+
+  // The knob face, as in the photo: flat satin steel with a rounded rim — a fine bright line all round,
+  // broad along the top where it faces the light.
   function knobFace(p, cx, cy, r) {
-    return `<g clip-path="url(#${p}faceClip)">
-      <rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" filter="url(#${p}satin)" opacity=".2" style="mix-blend-mode:soft-light"/>
-      <circle cx="${cx - 18}" cy="${cy - 26}" r="${(r * .8).toFixed(1)}" fill="#fff" opacity=".2" filter="url(#${p}sheen)"/>
-    </g>`;
+    const rim = `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`
+      + `M${cx - r + 1.5} ${cy + 4.5}a${r - 1.5} ${r - 1.5} 0 1 0 ${2 * r - 3} 0a${r - 1.5} ${r - 1.5} 0 1 0 ${-2 * r + 3} 0Z`;
+    // The fill goes inside the clipped group: a clip isolates the group, so the soft-light grain needs its
+    // backdrop in there with it.
+    return `
+      <g clip-path="url(#${p}faceClip)">
+        <rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" fill="url(#${p}face)"/>
+        <rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" filter="url(#${p}satin)" opacity=".2" style="mix-blend-mode:soft-light"/>
+        <path d="${rim}" fill-rule="evenodd" fill="url(#${p}faceRimTop)"/>
+      </g>
+      <circle cx="${cx}" cy="${cy}" r="${r - .8}" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="1.5"/>
+      <circle cx="${cx}" cy="${cy}" r="${r + .9}" fill="none" stroke="#8f8f8f" stroke-width="1.4"/>
+      <circle class="kl-knob-face" cx="${cx}" cy="${cy}" r="${r}" fill="none"/>`;
   }
 
   function lockSvg(p) {
     const { cx, cy, r } = KNOB;
-    const grip = gripPath();
     return `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${VB}" role="group" aria-label="Combination lock keypad">
   <defs>
@@ -255,19 +341,34 @@
       <stop offset=".145" stop-color="#fff" stop-opacity=".37"/><stop offset=".193" stop-color="#fff" stop-opacity=".27"/>
       <stop offset=".288" stop-color="#fff" stop-opacity=".12"/><stop offset=".48" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
+    <!-- The knob housing, measured from the photo: a flat, darker grey, lighter toward the right. -->
     <linearGradient id="${p}housing" x1="35" x2="211" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#c4c5c6"/><stop offset=".07" stop-color="#9c9d9e"/>
-      <stop offset=".5" stop-color="#a3a4a5"/><stop offset=".93" stop-color="#9c9d9e"/>
-      <stop offset="1" stop-color="#c4c5c6"/>
+      <stop offset="0" stop-color="#909090"/><stop offset=".5" stop-color="#8b8b8b"/>
+      <stop offset=".8" stop-color="#959595"/><stop offset=".97" stop-color="#a6a6a6"/>
     </linearGradient>
-    <linearGradient id="${p}toLedge" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".12"/>
+    <radialGradient id="${p}leftDim" cx="35" cy="517" r="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity=".15"/><stop offset=".5" stop-color="#000" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="${p}ledgeFront" x1="0" x2="0" y1="516.5" y2="524.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a2a2a2"/><stop offset="1" stop-color="#999"/>
     </linearGradient>
-    <linearGradient id="${p}ledgeFront" x1="0" x2="0" y1="507" y2="519" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#a6a7a8"/><stop offset=".7" stop-color="#9d9e9f"/><stop offset="1" stop-color="#b4b5b6"/>
+    <linearGradient id="${p}ledgeDark" x1="35" x2="211" gradientUnits="userSpaceOnUse">
+      <stop offset=".153" stop-color="#000" stop-opacity="0"/><stop offset=".21" stop-color="#000" stop-opacity=".22"/>
+      <stop offset=".244" stop-color="#000" stop-opacity=".24"/><stop offset=".29" stop-color="#000" stop-opacity=".1"/>
+      <stop offset=".347" stop-color="#000" stop-opacity="0"/><stop offset=".653" stop-color="#000" stop-opacity="0"/>
+      <stop offset=".7" stop-color="#000" stop-opacity=".15"/><stop offset=".795" stop-color="#000" stop-opacity=".15"/>
+      <stop offset=".847" stop-color="#000" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="${p}ledgeShadow" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#000" stop-opacity=".4"/><stop offset=".35" stop-color="#000" stop-opacity=".15"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+    <linearGradient id="${p}ledgeFoot" x1="70" x2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity=".1"/><stop offset=".3" stop-color="#000" stop-opacity=".4"/>
+      <stop offset=".5" stop-color="#000" stop-opacity=".6"/><stop offset=".7" stop-color="#000" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".1"/>
+    </linearGradient>
+    <linearGradient id="${p}ledgeShadow" x1="0" x2="0" y1="525" y2="545" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity=".1"/><stop offset=".1" stop-color="#000" stop-opacity=".27"/>
+      <stop offset=".3" stop-color="#000" stop-opacity=".2"/><stop offset=".6" stop-color="#000" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="${p}capFace" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0" stop-color="#c0c2c4"/><stop offset="1" stop-color="#b2b4b6"/>
@@ -309,24 +410,25 @@
     <linearGradient id="${p}capWall" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0" stop-color="#7d8083"/><stop offset=".6" stop-color="#686b6e"/><stop offset="1" stop-color="#55585b"/>
     </linearGradient>
-    <radialGradient id="${p}gripRim" cx="${cx}" cy="${cy}" r="${GRIP.outer}" gradientUnits="userSpaceOnUse">
-      <stop offset=".86" stop-color="#8e9195"/><stop offset=".9" stop-color="#b9bcbf"/>
-      <stop offset=".95" stop-color="#e9ebec"/><stop offset=".98" stop-color="#fbfbfc"/><stop offset="1" stop-color="#b0b3b6"/>
+    <!-- The grip's front: a band whose rounded outer edge catches the light, brightest along the top. -->
+    <radialGradient id="${p}lobeFront" cx="${cx}" cy="${cy}" r="${GRIP.outer}" gradientUnits="userSpaceOnUse">
+      <stop offset="${GRIP.inner / GRIP.outer}" stop-color="#9a9a9a"/><stop offset=".92" stop-color="#ababab"/>
+      <stop offset=".945" stop-color="#bcbcbc"/><stop offset=".98" stop-color="#c6c6c6"/><stop offset="1" stop-color="#b4b4b4"/>
     </radialGradient>
-    <linearGradient id="${p}gripLight" x1="0" x2=".15" y1="0" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity=".25"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
-      <stop offset=".75" stop-color="#000" stop-opacity=".12"/><stop offset="1" stop-color="#000" stop-opacity=".05"/>
+    <linearGradient id="${p}lobeLight" x1="0" x2="0" y1="${cy - GRIP.outer}" y2="${cy}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".25" stop-color="#fff" stop-opacity=".6"/>
+      <stop offset=".6" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
-    <radialGradient id="${p}face" cx=".45" cy=".4" r=".75">
-      <stop offset="0" stop-color="#aeb0b2"/><stop offset="1" stop-color="#a3a5a7"/>
-    </radialGradient>
-    <linearGradient id="${p}faceRim" x1="0" x2=".3" y1="0" y2="1">
-      <stop offset="0" stop-color="#fff"/><stop offset=".5" stop-color="#d3d5d7"/><stop offset="1" stop-color="#f4f5f6"/>
+    <linearGradient id="${p}face" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#acacac"/><stop offset=".12" stop-color="#a7a7a7"/>
+      <stop offset=".88" stop-color="#a6a6a6"/><stop offset="1" stop-color="#acacac"/>
+    </linearGradient>
+    <linearGradient id="${p}faceRimTop" x1="0" x2="0" y1="${cy - r}" y2="${cy}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".3" stop-color="#fff" stop-opacity=".75"/>
+      <stop offset=".6" stop-color="#fff" stop-opacity=".3"/><stop offset=".9" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
     <filter id="${p}soft" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="1.1"/></filter>
     <filter id="${p}softWide" x="-50%" y="-60%" width="200%" height="240%"><feGaussianBlur stdDeviation="3.2"/></filter>
-    <filter id="${p}blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
-    <filter id="${p}sheen" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
     <filter id="${p}brush" x="0" y="0" width="100%" height="100%"><!-- fine horizontal grain on the caps -->
       <feTurbulence type="fractalNoise" baseFrequency=".022 .95" numOctaves="2" seed="5"/>
       <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .9 0 0 0 -.35"/>
@@ -342,7 +444,7 @@
       <path d="M0 0H3.4V3.4H0Z" fill="none" stroke="#1e2023" stroke-opacity=".35" stroke-width=".3"/>
     </pattern>
     <!-- Stainless steel isn't perfect: a fine vertical brushed grain and faint uneven patches on the
-         plate, a fine grain on the grip, patches on the knob face. Grey noise, blended soft-light. -->
+         plate, patches on the knob face. Grey noise, blended soft-light. -->
     <filter id="${p}steelBrush" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
       <feTurbulence type="fractalNoise" baseFrequency=".75 .014" numOctaves="2" seed="11"/>
       <feColorMatrix type="matrix" values=".33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1"/>
@@ -351,12 +453,7 @@
       <feTurbulence type="fractalNoise" baseFrequency=".012 .02" numOctaves="3" seed="4"/>
       <feColorMatrix type="matrix" values=".33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1"/>
     </filter>
-    <filter id="${p}steelFine" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-      <feTurbulence type="fractalNoise" baseFrequency=".5" numOctaves="2" seed="8"/>
-      <feColorMatrix type="matrix" values=".33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1"/>
-    </filter>
     <clipPath id="${p}plate"><rect x="35" y="99" width="176" height="605" rx="50"/></clipPath>
-    <clipPath id="${p}gripClip"><path d="${grip}"/></clipPath>
     <filter id="${p}satin" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
       <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="2"/>
       <feColorMatrix type="matrix" values=".33 .33 .33 0 0  .33 .33 .33 0 0  .33 .33 .33 0 0  0 0 0 0 1"/>
@@ -375,38 +472,36 @@
     <ellipse cx="123" cy="116" rx="62" ry="15" fill="#fff" opacity=".25" filter="url(#${p}glare)"/>
     <rect x="35" y="99" width="16" height="230" fill="url(#${p}edgeTop)" filter="url(#${p}softWide)"/><!-- the side bands only show further down -->
     <rect x="195" y="99" width="16" height="230" fill="url(#${p}edgeTop)" filter="url(#${p}softWide)"/>
-    <rect x="35" y="470" width="176" height="40" fill="url(#${p}toLedge)"/>
-    <rect x="35" y="518" width="176" height="190" fill="url(#${p}housing)"/>
-    <rect x="35" y="519" width="176" height="16" fill="url(#${p}ledgeShadow)"/>
-    <rect x="35" y="99" width="176" height="605" filter="url(#${p}steelBrush)" opacity=".3" style="mix-blend-mode:soft-light"/>
+    <rect x="35" y="456" width="70" height="61" fill="url(#${p}leftDim)"/><!-- the left rail dims toward the ledge -->
+    <rect x="35" y="524.5" width="176" height="184" fill="url(#${p}housing)"/>
+    <rect x="35" y="99" width="176" height="418" filter="url(#${p}steelBrush)" opacity=".3" style="mix-blend-mode:soft-light"/>
     <rect x="35" y="99" width="176" height="605" filter="url(#${p}steelPatch)" opacity=".28" style="mix-blend-mode:soft-light"/>
-    <path d="M35 507H211V519H35Z" fill="url(#${p}ledgeFront)"/>
-    <path d="M35 507L42 515.6M211 507L204 515.6" stroke="#000" stroke-opacity=".12" stroke-width=".8"/>
-    <path d="M35 515.8H211" stroke="#fff" stroke-opacity=".8" stroke-width="1.1"/>
-    <path d="M35 519.4H211" stroke="#000" stroke-opacity=".3" stroke-width="1"/>
+    <!-- the ledge: a chamfer down from the keypad's plate, mitred into the side rails, its foot shadowed
+         (most of all over the knob) -->
+    <path d="M44.5 516.5H202.5L209.5 524.5H35.5Z" fill="url(#${p}ledgeFront)"/>
+    <path d="M44.5 516.5L36 524.5M202.5 516.5L210 524.5" stroke="#fff" stroke-opacity=".3" stroke-width=".8"/>
+    <path d="M38 516.2H208" stroke="#fff" stroke-opacity=".55" stroke-width="1.4"/>
+    <path d="M35 525.1H211" stroke="#fff" stroke-opacity=".22" stroke-width=".9"/>
+    <rect x="35" y="525" width="176" height="20" fill="url(#${p}ledgeShadow)"/>
+    <path d="M44.5 516.5H202.5L209.5 524.5H35.5Z" fill="url(#${p}ledgeDark)"/>
+    <path d="M70 524H180" stroke="url(#${p}ledgeFoot)" stroke-width="2.6" filter="url(#${p}edgeSoft)"/>
   </g>
   <rect x="35.6" y="99.6" width="174.8" height="603.8" rx="49.4" fill="none" stroke="url(#${p}plateRim)" stroke-width="1.2"/>
+  <path d="M35.7 525V654A49.3 49.3 0 0 0 85 703.3H161A49.3 49.3 0 0 0 210.3 654V525" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.2"/>
 
   <!-- keys -->
   ${LEFT.map((k, i) => keySvg(p, k, 'L', i)).join('')}
   ${RIGHT.map((k, i) => keySvg(p, k, 'R', i)).join('')}
 
-  <!-- knob: the grip ring turns; the face stays still -->
+  <!-- knob: the grip turns (redrawn as it goes: the light and the camera don't turn with it); the face
+       stays still. Behind them the plate darkens by the knob's cuts. -->
   <g class="kl-knob" role="button" tabindex="0" aria-label="Turn knob">
     <circle class="kl-hit" cx="${cx}" cy="${cy}" r="86"/>
-    <circle cx="${cx + 1}" cy="${cy + 6}" r="80" fill="#000" opacity=".3" filter="url(#${p}blur)"/>
-    <g class="kl-knurl">
-      <path d="${grip}" fill="url(#${p}gripRim)" stroke="#5a5d61" stroke-width=".7"/>
-      <path d="${grip}" fill="url(#${p}gripLight)"/>
-      <rect x="${cx - GRIP.outer}" y="${cy - GRIP.outer}" width="${2 * GRIP.outer}" height="${2 * GRIP.outer}" clip-path="url(#${p}gripClip)" filter="url(#${p}steelFine)" opacity=".4" style="mix-blend-mode:soft-light"/>
-      ${gripGrooves()}
-    </g>
-    <circle cx="${cx}" cy="${cy}" r="${r + 1.2}" fill="none" stroke="#000" stroke-opacity=".2" stroke-width="1.4"/>
-    <circle class="kl-knob-face" cx="${cx}" cy="${cy}" r="${r}" fill="url(#${p}face)"/>
+    <ellipse cx="${cx - 56}" cy="${cy - 62}" rx="22" ry="13" transform="rotate(-42 ${cx - 56} ${cy - 62})" fill="#000" opacity=".16" filter="url(#${p}softWide)"/>
+    <ellipse cx="${cx + 57}" cy="${cy - 63}" rx="16" ry="10" transform="rotate(42 ${cx + 57} ${cy - 63})" fill="#000" opacity=".1" filter="url(#${p}softWide)"/>
+    ${[[122, 150], [210, 238]].map(([a, b]) => { const [x0, y0] = polar(a, 77), [x1, y1] = polar(b, 77); return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}A77 77 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="none" stroke="#000" stroke-opacity=".14" stroke-width="10" filter="url(#${p}softWide)"/>`; }).join('')}
+    <g class="kl-grip">${gripSvg(p, 0)}</g>
     ${knobFace(p, cx, cy, r)}
-    <rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" clip-path="url(#${p}faceClip)" filter="url(#${p}steelPatch)" opacity=".35" style="mix-blend-mode:soft-light"/>
-    <circle cx="${cx}" cy="${cy}" r="${r - 1.2}" fill="none" stroke="url(#${p}faceRim)" stroke-width="1.7"/>
-    <circle cx="${cx}" cy="${cy}" r="${r - 2.8}" fill="none" stroke="#000" stroke-opacity=".1" stroke-width="1"/>
   </g>
 </svg>`;
   }
@@ -422,10 +517,11 @@
         style.textContent = CSS;
         document.head.prepend(style); // page styles win over these defaults
       }
-      const prefix = `kl${++instance}-`;
-      this.innerHTML = lockSvg(prefix);
+      this._prefix = `kl${++instance}-`;
+      this.innerHTML = lockSvg(this._prefix);
       this._svg = this.querySelector('svg');
       this._knob = this._svg.querySelector('.kl-knob');
+      this._grip = this._svg.querySelector('.kl-grip');
       this._keys = new Map([...this._svg.querySelectorAll('.kl-key')].map(el => [el.dataset.key, el]));
       this._held = new Set();      // button ids currently down
       this._pointers = new Map();  // pointerId -> button id
@@ -474,11 +570,22 @@
     }
 
     spinKnob(turned) {
-      const knob = this._knob;
-      if (!knob) return;
-      knob.classList.remove('turned', 'caught');
-      void knob.getBoundingClientRect(); // restart the animation
-      knob.classList.add(turned ? 'turned' : 'caught');
+      if (!this._grip) return;
+      const { ms, keys, ease } = SPIN[turned ? 'turned' : 'caught'];
+      const start = performance.now();
+      const angle = t => {
+        const i = keys.findIndex(([at]) => at >= t);
+        if (i <= 0) return keys[0][1];
+        const [t0, a0] = keys[i - 1], [t1, a1] = keys[i];
+        return a0 + (a1 - a0) * ease((t - t0) / (t1 - t0));
+      };
+      const frame = now => {
+        const t = Math.min(1, (now - start) / ms);
+        this._grip.innerHTML = gripSvg(this._prefix, angle(t));
+        if (t < 1) this._spin = requestAnimationFrame(frame);
+      };
+      cancelAnimationFrame(this._spin);
+      this._spin = requestAnimationFrame(frame);
     }
 
     _onPointerDown(e) {
