@@ -222,7 +222,7 @@ const History = (() => {
   function exportFile(kind) {
     const p = App.profile;
     const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'player';
-    const name = `times-sprint_${slug}_${kind}_${Report.stamp(Date.now()).slice(0, 10)}`;
+    const name = `math-sprints_${slug}_${kind}_${Report.stamp(Date.now()).slice(0, 10)}`;
     if (kind === 'answers') downloadFile(`${name}.csv`, Report.answersCSV(p, logs), 'text/csv');
     if (kind === 'sprints') downloadFile(`${name}.csv`, Report.sprintsCSV(p, logs), 'text/csv');
     if (kind === 'questions') downloadFile(`${name}.csv`, Report.questionsCSV(p, logs, App.model), 'text/csv');
