@@ -87,12 +87,14 @@ function solve() {
 }
 
 // The phone's own share sheet: the note's photo, and "Can you open this door?" with this door's short
-// link (/#…, which holds only a hash of the code). Without image sharing, just the words and link;
-// without a share sheet at all, the link is copied.
+// link (/#…, which holds only a hash of the code), or for its maker, the door's own short link
+// (set by door-edit.js). Without image sharing, just the words and link; without a share sheet at
+// all, the link is copied.
 const ASK = 'Can you open this door?';
 async function shareDoor(button) {
   const link = location.hash.length > 1 || location.search.length > 1;
-  const url = link ? new URL(`../${location.search}${location.hash}`, location.href).href : location.href;
+  const url = document.documentElement.dataset.shortLink
+    || (link ? new URL(`../${location.search}${location.hash}`, location.href).href : location.href);
   const data = shareFile && navigator.canShare?.({ files: [shareFile] })
     ? { files: [shareFile], title: 'The Door', text: `${ASK} ${url}` }
     : { title: 'The Door', text: ASK, url };

@@ -34,7 +34,11 @@ kids-game/
                          #<payload> (or /#<payload> on the hub) sets its own code check + note text instead (see note-link.js);
                          older ?<payload> links carry the code itself and still work
     make.html         ← Make a Door: write a note (Markdown) + answer (+ optional message), live preview, copy the link;
-                         linked from the door's faint "make your own"
+                         linked from the door's faint "make your own". Copy / Try it also keeps the door in your doors,
+                         with a short link when this browser has a maker secret (then Link shows and copies the short
+                         link, which each save re-points); make.html?edit=<id> opens a kept door to change it;
+                         make.html#maker=<secret> is a maker's setup link
+    doors.html        ← Your Doors: the doors this browser kept, each to open or edit (needs the applet's server)
     door.jpg          ← the note with the original handwriting
     door-blank.jpg    ← the same photo, note left blank, for printed text
     js/
@@ -52,9 +56,23 @@ kids-game/
                              message ("You're in!" or the link's own, unsealed by the code) in place of the photo;
                              Share (under the photo, then in the card): the photo + "Can you open this door?" + link
                              via the OS share sheet, else words + link, else copy; note expand, sound
-      make.js              ← make.html wiring: answer limited to the lock's buttons, preview, link
+      make.js              ← make.html wiring: answer limited to the lock's buttons, preview, link, keeping the door
+      applets.js           ← url-short's applets client, copied as it is (module)
+      applet-config.js     ← which applet keeps doors: published, The Door on qerl.app (id sitq7e1b1ais); on a local
+                             address js/applet.local.js (git-ignored), `export default { endpoint, apiKey, secret }`
+      saved-doors.js       ← your doors: records of type "doors" (text, code, message, link; private) in that
+                             applet. A browser joins the applet with its first kept door, not before; offline,
+                             nothing is kept. Short links (createLink/updateLink) need a maker secret: one the owner
+                             let make links, handed out as make.html#maker=<secret> and kept in localStorage, never
+                             in the code
+      door-edit.js         ← the door's "your doors" link + Edit (when this door is one of yours); greyed out
+                             while the server can't be reached; a browser that never kept a door shows neither.
+                             On your own door with a short link, Share (door.js) hands out that link
+      doors.js             ← doors.html wiring
     tools/            ← keypad-vs-photo harness: Chrome render, overlays, label fitter, knob check (not part of the game)
     CLAUDE.md         ← how to use tools/
+  tools/qerl-stage.mjs ← copies one game into its own folder for its own qerl.app applet site (each game is
+                         one there: hill-jumper, puppy-room, cosmic-sling, math-sprints, the-door)
   CLAUDE.md
 ```
 When adding a new game, create a new subfolder (e.g. `word-blast/index.html`) and add a card to the root `index.html` grid.

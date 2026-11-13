@@ -39,6 +39,7 @@
   .field > label { font-size: 14px; font-weight: 600; color: #b9b5ae; }
   small { font-size: 13px; color: #8f8b85; transition: color .2s; }
   small.warn { color: #f0a35e; }
+  small a { color: inherit; }
   textarea, input {
     width: 100%; font: inherit; color: #1b1a19; background: #f4f1ea;
     border: 1px solid #5a5650; border-radius: 10px; padding: 10px 12px;
@@ -82,9 +83,10 @@
     <div class="field">
       <label for="link">Link</label>
       <div class="link">
-        <input id="link" readonly>
+        <input id="link" readonly aria-describedby="saved">
         <button class="copy" id="copy" type="button">Copy</button>
       </div>
+      <small id="saved"></small>
     </div>
     <a class="try" id="try" target="_blank" rel="noopener">Try it</a>
   </main>
@@ -92,6 +94,6 @@
   <script src="js/lockey-2930-rules.js"></script>
   <script src="js/note-link.js"></script>
   <script src="js/note-text.js"></script>
-  <script src="js/make.js"></script>
+  <script type="module" src="js/make.js"></script>
 </body>
 </html>
